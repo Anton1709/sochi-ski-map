@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Горнолыжные курорты Сочи</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.10.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.10.0/mapbox-gl.js"></script>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .mapboxgl-ctrl-group button {
+      margin-bottom: 0;
+    }
+    #legend {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      z-index: 1;
+      width: 280px;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    label.legend-title-label {
+      font-family: Helvetica, Arial, sans-serif;
+      font-weight: bold;
+      font-size: 18px;
+      text-align: center;
+      display: block;
+      margin-block-start: 1.2em;
+      margin-block-end: 0.6em;
+      margin-inline-start: 0px;
+      margin-inline-end: 0px;
+      unicode-bidi: isolate;
+    }
+    #legend.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-20px);
+    }
+    #toggle-legend-btn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 30px;
+      height: 30px;
+      transition: left 0.3s ease;
+      z-index: 2;
+      background: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #toggle-legend-btn.closed {
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      border: 1px solid #ccc;
+    }
+    #toggle-legend-btn:not(.closed) {
+      box-shadow: none;
+      border: none;
+    }
+    .line {
+      position: absolute;
+      width: 13px;
+      height: 2px;
+      background: #5d5d5d;;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .top {
+      transform: rotate(45deg);
+    }
+    .middle {
+      opacity: 0;
+    }
+    .bottom {
+      transform: rotate(-45deg);
+    }
+    .closed .top {
+      transform: translateY(-6px) rotate(0deg);
+    }
+    .closed .middle {
+      opacity: 1;
+    }
+    .closed .bottom {
+      transform: translateY(6px) rotate(0deg);
+    }
+    input[type="text"], select, button {
+      width: 100%;
+      margin-bottom: 8px;
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    label { display: block; margin-bottom: 4px; font-weight: bold; }
+    details {
+      overflow: hidden;
+      transition: all 0.3s ease;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    details ul {
+      margin: 0;
+      padding: 0 14px 10px 30px;
+      list-style: none;
+      transition: all 0.3s ease;
+    }
+    summary {
+      position: relative;
+      padding: 3px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+      list-style: none;
+      font-family: "Roboto", Arial, Helvetica, sans-serif;
+      font-weight: bold;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+    }
+    summary::before {
+      content: "⟩";
+      display: inline-block;
+      margin-right: 10px;
+      font-size: 12px;
+      transition: transform 0.3s ease;
+      color: #555;
+      display: none;
+    }
+    details[open] summary::before {
+      transform: rotate(90deg);
+    }
+    summary:hover {
+      background-color: #e2efff;
+      color: #0055aa;
+      box-shadow: 0 2px 6px rgba(0, 85, 170, 0.15);
+    }
+    ul { padding-left: 20px; margin: 4px 0; }
+    li { 
+      position: relative;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: "Roboto", Arial, Helvetica, sans-serif;
+      font-size: 14px; 
+      cursor: pointer;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    li:hover {
+      background-color: #f0f4f8;
+    }
+    #search-input {
+      width: 267px;
+    }
+    #search-results {
+      background: #fff;
+      border: 1px solid #ccc;
+      max-height: 120px;
+      overflow-y: auto;
+      margin-bottom: 8px;
+    }
+    #search-results div {
+      padding: 4px;
+      cursor: pointer;
+    }
+    #search-results div:hover {
+      background-color: #eee;
+    }
+    #custom-popup {
+      position: absolute;
+      top: 10px;
+      left: 330px;
+      width: 280px;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      z-index: 2;
+      max-height: 90vh;
+      overflow-y: auto;
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease, left 0.3s ease, top 0.3s ease;
+    }
+    #custom-popup.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    #object-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0px;
+    }
+    #snow_button {
+      display: none;
+    }
+    #snowControl {
+      display: none;
+    }
+    .snow {
+      position: absolute;
+      right: 7px;
+      top: 186px;
+      width: 30px;
+      height: 30px;
+      background-color: rgb(99, 99, 99);
+      border-radius: 50%;
+      z-index: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid rgb(126, 126, 126);
+      box-shadow: 0px 0px 3px rgb(2, 2, 2) inset;
+    }
+    .snow svg {
+      width: 20px;
+    }
+    .snow svg path {
+      fill: rgb(200, 200, 200);
+    }
+    #snowControl:checked + .snow {
+      box-shadow: 0px 0px 1px rgb(151, 243, 255) inset,
+        0px 0px 2px rgb(151, 243, 255) inset, 0px 0px 10px rgb(151, 243, 255) inset,
+        0px 0px 40px rgb(151, 243, 255), 0px 0px 100px rgb(151, 243, 255),
+        0px 0px 5px rgb(151, 243, 255);
+      border: 2px solid rgb(255, 255, 255);
+      background-color: rgb(146, 180, 184);
+    }
+    #snowControl:checked + .snow svg {
+      filter: drop-shadow(0px 0px 5px rgb(151, 243, 255));
+    }
+    #snowControl:checked + .snow svg path {
+      fill: rgb(255, 255, 255);
+    }
+    #style-toggle {
+      position: absolute;
+      width: 75px;
+      padding: 6px;
+      margin-bottom: 8px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-family: Helvetica, Arial, sans-serif;
+      font-weight: bold;
+      font-size: 14px;
+      z-index: 5;
+      top: 10px;
+      left: 248px;
+    }
+    #style-toggle option[value="winter"] {
+      background-color: #e0f0ff;
+      color: #0055aa;
+    }
+    #style-toggle option[value="summer"] {
+      background-color: #fff8dc;
+      color: #ff9900;
+    }
+    #style-toggle.winter {
+      background-color: #4d8bff;
+      color: #fff;
+    }
+    #style-toggle.summer {
+      background-color: #ff9900;
+      color: #fff;
+    }
+    .button {
+            position: absolute;
+            right: 9px;
+            top: 147px;
+            width: 30px;
+            height: 30px;
+            padding: 5px;
+            z-index: 5;
+            background-color: #01d63a;
+            color: white;
+            box-shadow: 0px 0px 2px rgb(2, 2, 2) inset;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .button:hover {
+            background-color: #06b300;
+        }
+        .button svg {
+            width: 12px;
+            height: 12px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            width: 300px;
+            position: relative;
+            text-align: left;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            color: #333;
+        }
+        .close:hover {
+            color: #000;
+        }
+        p {
+            margin: 10px 0;
+            font-size: 14px;
+            font-weight: 500;
+        }
+  </style>
+</head>
+<body>
+  <div id="map">
+    <button id="toggle-legend-btn" class="burger-btn" aria-label="Toggle Legend">
+      <span class="line top"></span>
+      <span class="line middle"></span>
+      <span class="line bottom"></span>
+    </button>
+    <select id="style-toggle">
+      <option value="winter">ЗИМА</option>
+      <option value="summer">ЛЕТО</option>
+    </select>
+    <div id="legend">
+      <label class="legend-title-label">Условные обозначения</label>
+      <label for="search-input">Поиск объектов:</label>
+      <input type="text" id="search-input" placeholder="Введите название...">
+      <div id="search-results"></div>
+      <div id="object-list"></div>
+    </div>
+    <div id="custom-popup"></div>
+    <button class="button" onclick="openModal()">
+      <svg id="a" xmlns="http://www.w3.org/2000/svg" width="5.9863" height="10.0626" viewBox="0 0 5.9863 10.0626">
+          <path d="M2.2285,4.3467H.2422v-1.3154H3.9585v5.7168h2.0278v1.3145H0v-1.3145H2.2285V4.3467Zm1.8687-3.2393c0,.1523-.0278,.2959-.083,.4297-.0557,.1338-.1328,.25-.2319,.3486-.0996,.0996-.2158,.1777-.3496,.2354s-.2793,.0869-.436,.0869-.3032-.0293-.4395-.0869-.2539-.1357-.353-.2354c-.0991-.0986-.1763-.2148-.2319-.3486-.0552-.1338-.083-.2773-.083-.4297s.0278-.2949,.083-.4287c.0557-.1338,.1328-.252,.2319-.3535,.0991-.1006,.2168-.1807,.353-.2383s.2827-.0869,.4395-.0869,.3022,.0293,.436,.0869,.25,.1377,.3496,.2383c.0991,.1016,.1763,.2197,.2319,.3535,.0552,.1338,.083,.2764,.083,.4287Z" fill="white"/>
+      </svg>
+    </button>
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">×</span>
+            <h2 style="text-align: center;">Интерактивная карта горнолыжных курортов Сочи</h2>
+            <h2>Для поворота карты зажмите правую кнопку мыши.</h2>
+            <h3>Для ориентирования карты на север нажмите на значок компаса в правом верхнем углу.</h3>
+            <p>Карта выполнена в рамках выпускной квалификационной работы на кафедре визуализации геоданных и картографического дизайна МИИГАиК.</p>
+            <p>Студент: Халлук А.Д.</p>
+            <p>Руководитель: Ковалева О.В., доцент, к.т.н.</p>
+            <p>2025 г.</p>
+        </div>
+    </div>
+    <div id="snow_button">
+      <input id="snowControl" type="checkbox">
+      <label class="snow" for="snowControl">
+        <?xml version="1.0" encoding="utf-8"?>
+      <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+        viewBox="0 0 453.5 453.5" style="enable-background:new 0 0 453.5 453.5;" xml:space="preserve">
+      <style type="text/css">
+        .st0{fill:#4294FF;}
+      </style>
+      <path class="st0" d="M127.6,350.9c-1,9.2-1.7,18.1-3.1,26.8c-1.3,7.8-9.7,13.2-18,12.2c-7.8-0.9-14.4-7.9-13.8-15.8
+        c0.9-13.7,2.6-27.4,3.8-41.1c0.2-2.2,0-4.5,0-7.5c-13,7.8-25.3,15.2-37.6,22.6c-9.2,5.5-13.6,5.2-21.7-0.2c-5.5-3.7-7.8-12.6-4.3-19
+        c2.2-4,6.3-7.4,10.3-10c11.8-7.6,24.1-14.7,36.5-22.2c-14.9-6.1-29.3-12-43.7-18.1c-6.1-2.6-9-7.6-9.4-14.1
+        c-0.4-6.9,2.6-12.2,8.5-15.3c6.8-3.6,13.3-1.2,19.9,1.5c18.7,7.8,37.5,15.3,56.2,23.2c6.1,2.6,9.9-1.9,14-4.4
+        c21.6-12.6,42.9-25.7,64.3-38.6c1.4-0.8,2.7-1.8,4.6-3.1c-8.6-5.2-16.9-10.1-25.1-15.1c-16.1-9.7-32.4-19.2-48.3-29.4
+        c-5.8-3.7-10.2-0.9-14.9,1C87.1,191.7,68.6,199.4,50,207c-8.5,3.5-19.1,0.3-22.6-9.5c-2.7-7.6,0.6-16.9,9.1-20.6
+        c14.1-6.2,28.4-11.8,43.2-17.9c-7.1-4.3-14.2-8.5-21.1-12.8c-7.3-4.5-15-8.6-21.7-14c-6.8-5.4-7.1-14.3-2.2-21.6
+        c4.3-6.4,12.9-8.9,20.4-4.9c9.9,5.3,19.4,11.2,29,16.9c3.9,2.3,7.8,4.7,12.8,7.7c-0.6-6.7-1.1-12.5-1.5-18.4
+        c-0.9-11-2.4-22-2.4-32.9c0-10.7,14.7-16.8,24.6-11c5.5,3.2,7.5,8.4,8.1,14.1c1.3,11.1,2.1,22.2,3.1,33.3c1,10.6,1.8,21.3,3.2,31.8
+        c0.3,2.3,2.3,5.2,4.3,6.4c22.8,14,45.8,27.8,68.7,41.6c1.8,1.1,3.6,1.9,5.8,3c0-22.1,0-43.9,0-65.7c0-6.7-0.2-13.3,0.1-20
+        c0.1-3.2-1-5-3.4-6.8c-18.1-13.4-36.1-26.8-54.2-40.2c-5.6-4.2-8.8-12.8-6.3-19.5c2.2-6,7.9-10.5,15.5-10.6
+        c8.6-0.1,13.3,5.7,19.1,9.8c9.6,6.8,19,14.1,29.1,21.7c0-16.7,0-32.4,0-48.2c0-9.3,6.1-15,16.1-15c9.7,0,15.8,5.8,15.9,14.8
+        c0,15.8,0,31.7,0,48.4c7.3-5.5,14.2-10.6,21-15.7c5.7-4.3,11.2-9,17.2-13c6.6-4.4,18.3-3.9,23.5,3.9c4.2,6.4,3.5,18.1-4.4,23.8
+        c-18.6,13.5-36.8,27.5-55.1,41.4c-1.1,0.8-1.5,2.5-2.1,3.8c-0.2,0.6,0,1.3,0,2c0,28.3,0,56.7,0,85.6c12.3-7.3,24.2-14.3,36.1-21.4
+        c12.4-7.4,24.6-15.2,37.2-22.3c3.7-2.1,5.2-4.9,5.6-8.4c1-7.8,1.3-15.7,2.1-23.6c1.2-11.4,2.6-22.8,3.9-34.1c0.2-2,0-4,0.1-6
+        c0.5-8.7,5.8-15.3,15.3-17c5.9-1.1,14.6,3.8,16.6,10.4c1.4,4.4,1.2,9.5,0.9,14.2c-0.6,9.5-1.9,18.9-2.9,28.3
+        c-0.4,3.5-0.8,7.1-1.4,11.7c10-6,19-11.4,28-16.8c4.2-2.5,8.3-5,12.5-7.5c8.9-5.3,19-1,23.2,6.4s1.6,17.1-6.4,22.2
+        c-11.1,7-22.5,13.6-33.7,20.4c-1.9,1.2-3.8,2.4-6.2,3.9c14.8,6.1,29.2,11.8,43.4,18c5.9,2.6,9.4,7.5,9.6,14.3s-2.6,12.1-8.6,15.3
+        c-6.6,3.6-13.1,1.3-19.5-1.3c-18.7-7.7-37.5-15.2-56.1-23.2c-6.4-2.8-10.2,1.7-14.5,4.2c-21.6,12.6-42.9,25.7-64.3,38.6
+        c-1.4,0.8-2.6,1.8-4.6,3.1c8.6,5.2,16.9,10.1,25.1,15.1c16.1,9.7,32.4,19.2,48.3,29.4c5.8,3.7,10.2,0.8,14.9-1
+        c18.7-7.4,37.2-15.1,55.8-22.7c7.6-3.1,16.8-1,21,5.3c4.2,6.3,3.8,15.1-1.6,21c-3,3.2-8,4.7-12.2,6.5c-12.1,5.1-24.2,10-36.8,15.1
+        c8.9,5.4,17.7,10.6,26.3,15.9c5.7,3.5,11.6,6.7,16.6,10.9c6.5,5.5,7,14.5,2.1,21.7c-4,5.9-13.2,8.6-20.1,5
+        c-10-5.4-19.6-11.5-29.4-17.2c-3.9-2.3-7.7-4.6-12.8-7.7c0.7,6.8,1.3,12.7,1.8,18.6c0.9,11,2.2,22,2.3,33c0,6-4.9,9.7-10.3,11.9
+        c-5.4,2.2-10.6,1.3-15.2-2.1c-5.3-3.9-6.9-9.3-7.4-15.8c-0.8-11.7-2.6-23.4-3.8-35.1c-0.8-8.2-1.5-16.4-2-24.6
+        c-0.3-4.5-1.4-7.7-5.8-10.3c-22.5-13.2-44.8-26.9-67.2-40.3c-1.8-1.1-3.7-2-6-3.3c0,1.8,0,3.4,0,5c0,26.5,0.2,53-0.2,79.5
+        c-0.1,4.4,1.6,6.9,4.8,9.2c17.9,13.3,35.9,26.6,53.7,40c5.3,4,7.7,12.6,5.3,18.9c-2.4,6.2-8.4,10.2-15.1,10.4
+        c-8.6,0.3-13.4-5.4-19.2-9.6c-9.7-6.9-19-14.2-29.3-21.9c0,4.7,0,8.6,0,12.5c0,12.2,0,24.3,0,36.5c0,8-6.3,14-14.3,14.4
+        c-7.7,0.4-13.6-2-16.7-9.4c-0.7-1.6-0.9-3.5-0.9-5.2c-0.1-15.9,0-31.9,0-48.7c-10.1,7.6-19.6,14.6-29,21.7c-3.1,2.4-6,5.1-9.3,7.1
+        c-6.7,4.2-18.4,3.7-23.4-4.1c-4.1-6.4-3.1-18.1,4.7-23.7c18.7-13.4,36.8-27.5,55.1-41.4c0.9-0.7,1.9-1.9,1.9-2.9
+        c0.1-29.3,0.1-58.6,0.1-88.5c-17.5,10.5-34.5,20.8-51.6,31c-7.4,4.4-14.9,8.6-22.1,13.4c-2.3,1.5-4.7,4.4-5.1,7
+        c-1.2,8.1-1.5,16.4-2.3,24.5C129.1,338.8,128.3,344.6,127.6,350.9z"/>
+      </svg>
+        </label>
+      </div>
+  </div>
+  
+  <script>  
+    mapboxgl.accessToken = 'pk.eyJ1IjoiYW50b24xNzA5IiwiYSI6ImNtdjJ0d3k1ZTBneWIyd3NnZ2pkeHBjMmcifQ.dmDMGMCCr-PLCO8chbU3lg';
+
+    const mapStyles = {
+      winter: 'mapbox://styles/anton1709/cma3pi52l001101sl9276h1hr?fresh=true',
+      summer: 'mapbox://styles/anton1709/cma5phtll008s01r49whe3zv7?fresh=true'
+    };
+
+    const groupByStyle = {
+      winter: ['green', 'blue', 'red', 'black', 'gondola1', 'chair1', 'bugel1', 'hotel', 'education_w', 'rental_w', 'poi', 'active', 'relax', 'info', 'hotel', 'cafe', 'hospital'],
+      summer: ['easy', 'medium', 'hard', 'expert', 'gondola2', 'chair2', 'education_s', 'rental_s', 'poi', 'active', 'relax', 'info', 'hotel', 'cafe', 'hospital']
+    };
+
+    let map;
+    let currentStyle = 'winter';
+    let geojsonData = null;
+    let currentPopup = null;
+    let clickedOnFeature = false;
+
+    function initMap(styleKey) {
+      const center = map ? map.getCenter() : [40.306541, 43.661585];
+      const zoom = map ? map.getZoom() : 11.75;
+      const bearing = map ? map.getBearing() : -164;
+      const pitch = map ? map.getPitch() : 60;
+
+      if (map) map.remove();
+
+      const maxBounds = [
+        [39.7080, 43.3840],
+        [40.9393, 43.9870]
+      ]
+
+      map = new mapboxgl.Map({
+        container: 'map',
+        projection: 'mercator',
+        style: mapStyles[styleKey],
+        center: center,
+        zoom: zoom,
+        minZoom: 11.5,
+        maxZoom: 17.5,
+        bearing: bearing,
+        pitch: pitch,
+        maxBounds: maxBounds
+      });
+
+      map.addControl(new mapboxgl.FullscreenControl());
+      map.addControl(new mapboxgl.NavigationControl());
+      map.addControl(new mapboxgl.ScaleControl(), 'bottom-right');
+      
+      const styleToggle = document.getElementById('style-toggle');
+
+      function updateSelectColor() {
+        styleToggle.classList.remove('winter', 'summer');
+        const selected = styleToggle.value;
+        if (selected === 'winter') {
+          styleToggle.classList.add('winter');
+        } else if (selected === 'summer') {
+          styleToggle.classList.add('summer');
+        }
+      }
+
+      styleToggle.addEventListener('change', updateSelectColor);
+      updateSelectColor();
+
+      const zoomBasedReveal = (value) => {
+              return [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  11,
+                  0.0,
+                  13,
+                  value
+                ];
+            };
+
+    let snowEnabled = false;
+
+    const snowControl = document.getElementById('snowControl');
+        let layerVisible = true;
+        let isWinterStyle = styleToggle.value === 'winter';
+		
+        snowControl.addEventListener('click', () => {
+            if (layerVisible) {
+				map.setSnow({
+				density: zoomBasedReveal(0.85),
+                intensity: 1.0,
+                'center-thinning': 0.1,
+                direction: [0, 50],
+                opacity: 1.0,
+                color: `#ffffff`,
+                'flake-size': 0.71,
+                vignette: zoomBasedReveal(0.3),
+                'vignette-color': `#ffffff`
+            });
+            } else {
+				map.setSnow(false);
+            }
+            layerVisible = !layerVisible;
+        });
+
+        function toggleSnow(enabled) {
+        if (enabled) {
+            map.setSnow(true);
+        } else {
+            map.setSnow(false);
+        }
+    }
+
+    
+
+    function updateSnowButton() {
+        const snowControl = document.getElementById("snowControl");
+        snowControl.checked = snowEnabled;
+    }
+
+    document.getElementById("snowControl").addEventListener("change", function () {
+        snowEnabled = this.checked;
+        toggleSnow(snowEnabled);
+    });
+
+    document.getElementById("style-toggle").addEventListener("change", function (event) {
+        const selectedStyle = event.target.value;
+
+        if (selectedStyle === 'winter') {
+            map.setStyle(winter);
+            snowEnabled = true;
+        } else {
+            map.setStyle(summer);
+            snowEnabled = false;
+        }
+
+        toggleSnow(snowEnabled);
+        updateSnowButton();
+    });
+
+    updateSnowButton();
+		
+    	map.on('zoom', () => {
+			if (map.getZoom() >= 11 && isWinterStyle) {
+				document.getElementById('snow_button').style.display = 'block';
+			} else {
+				document.getElementById('snow_button').style.display = 'none';
+			}
+		});
+
+    function setPitch(pitch) {
+        map.setPitch(pitch);
+    }
+
+    map.on('pitchend', () => {
+        const pitch = map.getPitch();
+        if (pitch >= 0 && pitch <= 30) {
+            map.setLayoutProperty('resort-86j90e', 'visibility', 'visible');
+            map.setLayoutProperty('resort-86j90e copy', 'visibility', 'none');
+        } else {
+            map.setLayoutProperty('resort-86j90e', 'visibility', 'none');
+            map.setLayoutProperty('resort-86j90e copy', 'visibility', 'visible');
+        }
+    });
+
+    let geojsonData = null;
+
+    map.on('load', () => {
+      Promise.all([
+        fetch('slopes.geojson').then(res => res.json()),
+        fetch('trails.geojson').then(res => res.json()),
+        fetch('lifts_w.geojson').then(res => res.json()),
+        fetch('lifts_s.geojson').then(res => res.json()),
+        fetch('point.geojson').then(res => res.json())
+      ])
+      .then(([slopesData, trailsData, lifts_wData, lifts_sData, pointData]) => {
+        slopesData.features.forEach(f => { f.properties.source = 'slopes'; });
+        trailsData.features.forEach(f => { f.properties.source = 'trails'; });
+        lifts_wData.features.forEach(f => { f.properties.source = 'lifts_w'; });
+        lifts_sData.features.forEach(f => { f.properties.source = 'lifts_s'; });
+        pointData.features.forEach(f => { f.properties.source = 'point'; });
+
+        const combinedData = {
+          type: 'FeatureCollection',
+          features: [...slopesData.features, ...trailsData.features, ...lifts_wData.features, ...lifts_sData.features, ...pointData.features]
+        };
+
+        geojsonData = combinedData;
+
+        updateGeojsonLayer(combinedData);
+      })
+      .catch(error => {
+        console.error('Ошибка при загрузке GeoJSON:', error);
+      });
+
+      map.on('pitch', () => {
+        const pitch = map.getPitch();
+        const layerId = 'points-6l41lp';
+        const newIcon = pitch > 30 ? 'roza_hutor_line' : 'castle1';
+
+        if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, 'icon-image', newIcon);
+          map.setLayoutProperty(layerId, 'icon-anchor', 'bottom');
+        }
+      });
+
+
+      const my_layers = ['lifts_w gondola', 'lifts_w gondola copy', 'lifts_w icon gondola', 'lifts_w chair', 'lifts_w chair copy', 'lifts_w icon chair',
+      'lifts_w bugel', 'lifts_w bugel copy', 'lifts_w icon bugel', 'lifts_s gondola', 'lifts_s gondola copy', 'lifts_s icon gondola', 
+      'lifts_s chair', 'lifts_s chair copy', 'lifts_s icon chair', 'resort-86j90e copy', 'resort-86j90e', 'slopes-black', 'slopes-black copy', 'slopes-black text',
+      'slopes-red', 'slopes-red copy', 'slopes-red text', 'slopes-blue', 'slopes-blue copy', 'slopes-blue text', 'slopes-green', 'slopes-green copy', 'slopes-green text',
+      'trails-expert', 'trails-expert copy', 'trails-expert text', 'trails-hard', 'trails-hard copy', 'trails-hard text', 'trails-medium', 'trails-medium copy', 'trails-medium text',
+      'trails-easy', 'trails-easy copy', 'trails-easy text', 'education_w2', 'rental_w2', 'poi2', 'active2', 'relax2', 'info2', 'hotel2', 'cafe2', 'hospital2',
+      'education_s3', 'rental_s3', 'poi3', 'active3', 'relax3', 'info3', 'hotel3', 'cafe3', 'hospital3']
+
+      map.on('click', my_layers, (e) => {
+        const featureFromMap = e.features[0];
+        clickedOnFeature = true;
+
+        let matchedFeature = null;
+        if (geojsonData) {
+          matchedFeature = geojsonData.features.find(f => {
+            if (f.properties.name && featureFromMap.properties.name) {
+              return f.properties.name === featureFromMap.properties.name;
+            }
+            if (f.geometry.type === 'Point' && featureFromMap.geometry.type === 'Point') {
+              const [fx, fy] = f.geometry.coordinates;
+              const [mx, my] = featureFromMap.geometry.coordinates;
+              return Math.abs(fx - mx) < 0.0001 && Math.abs(fy - my) < 0.0001;
+            }
+            return false;
+          });
+        }
+
+        const feature = matchedFeature || featureFromMap;
+          flyToFeature(feature, false);
+        });
+
+        map.on('mouseenter', my_layers, () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', my_layers, () => {
+          map.getCanvas().style.cursor = '';
+        });
+
+        map.on('click', (e) => {
+          setTimeout(() => {
+            if (!clickedOnFeature) {
+              const popup = document.getElementById('custom-popup');
+              popup.classList.remove('show');
+              popup.style.display = 'none';
+              map.setFilter('highlight-points', ['==', 'name', '']);
+              map.setFilter('highlight-lines', ['==', 'name', '']);
+            }
+            clickedOnFeature = false;
+          }, 0);
+        });
+      });
+    }
+
+    function updateGeojsonLayer(data) {
+      const allowedGroups = groupByStyle[currentStyle];
+
+      const filtered = {
+        type: 'FeatureCollection',
+        features: data.features.filter(f => allowedGroups.includes(f.properties.group))
+      };
+
+      if (!map.getSource('custom-points')) {
+        map.addSource('custom-points', { type: 'geojson', data: filtered });
+      }
+      if (filtered.features.some(f => f.geometry.type === 'LineString')) {
+        map.addSource('custom-lines', { type: 'geojson', data: filtered });
+      }
+
+      setupObjectList(filtered.features);
+      setupSearch(filtered.features);
+    }
+
+    function setupObjectList(features) {
+      const container = document.getElementById('object-list');
+      container.innerHTML = '';
+
+      const groups = {};
+      const chapters = {};
+      const styleGroups = currentStyle === 'winter' ? 
+      ['green', 'blue', 'red', 'black', 'gondola1', 'chair1', 'bugel1', 'education_w', 'rental_w', 'poi', 'active', 'relax', 'info', 'hotel', 'cafe', 'hospital'] : 
+      ['easy', 'medium', 'hard', 'expert', 'gondola2', 'chair2', 'education_s', 'rental_s', 'poi', 'active', 'relax', 'info', 'hotel', 'cafe', 'hospital'];
+
+      features
+        .filter(f => styleGroups.includes(f.properties.group))
+        .forEach(f => {
+          const chapter = f.properties.chapter || 'Без главы';
+          const subChapter = f.properties.sub_chapter || '';
+          const group = f.properties.group || 'Прочее';
+          if (!chapters[chapter]) chapters[chapter] = {};
+          if (!chapters[chapter][subChapter]) chapters[chapter][subChapter] = {};
+          if (!chapters[chapter][subChapter][group]) chapters[chapter][subChapter][group] = [];
+          chapters[chapter][subChapter][group].push(f);
+        });
+
+      const groupIcons = {
+        green: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1553" height="2.8345" viewBox="0 0 50.1553 2.8345"><rect width="50.1553" height="2.8345" fill="#2d9e35"/></svg>`,
+        blue: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1553" height="2.8345" viewBox="0 0 50.1553 2.8345"><rect width="50.1553" height="2.8345" fill="#0064ae"/></svg>`,
+        red: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1553" height="2.8345" viewBox="0 0 50.1553 2.8345"><rect width="50.1553" height="2.8345" fill="#cb2517"/></svg>`,
+        black: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1553" height="2.8345" viewBox="0 0 50.1553 2.8345"><rect width="50.1553" height="2.8345"/></svg>`,        
+        easy: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1553" height="2.8345" viewBox="0 0 50.1553 2.8345"><rect width="50.1553" height="2.8345" fill="#2d9e35"/></svg>`,
+        medium: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1553" height="2.8345" viewBox="0 0 50.1553 2.8345"><rect width="50.1553" height="2.8345" fill="#0064ae"/></svg>`,
+        hard: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1553" height="2.8345" viewBox="0 0 50.1553 2.8345"><rect width="50.1553" height="2.8345" fill="#cb2517"/></svg>`,
+        expert: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1553" height="2.8345" viewBox="0 0 50.1553 2.8345"><rect width="50.1553" height="2.8345"/></svg>`,        
+        gondola1: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1558" height="16.0132" viewBox="0 0 50.1558 16.0132"><g><path d="M28.3167,15.5132h-6.4773c-2.3571,0-4.2679-1.9108-4.2679-4.2679V4.768c0-2.3571,1.9108-4.2679,4.2679-4.2679h6.4773c2.3571,0,4.2679,1.9108,4.2679,4.2679v6.4773c0,2.3572-1.9108,4.2679-4.2679,4.2679Z" fill="#6c65ab"/><path d="M28.3169,16.0132h-6.4775c-2.6289,0-4.7681-2.1387-4.7681-4.7676V4.7681c0-2.6289,2.1392-4.7681,4.7681-4.7681h6.4775c2.6289,0,4.7676,2.1392,4.7676,4.7681v6.4775c0,2.6289-2.1387,4.7676-4.7676,4.7676ZM21.8394,1c-2.0776,0-3.7681,1.6904-3.7681,3.7681v6.4775c0,2.0772,1.6904,3.7676,3.7681,3.7676h6.4775c2.0772,0,3.7676-1.6904,3.7676-3.7676V4.7681c0-2.0776-1.6904-3.7681-3.7676-3.7681h-6.4775Z" fill="#fff"/></g><path d="M50.1558,8.5029h-9.1191v-.9922h9.1191v.9922Zm-13.6787,0h-9.1191v-.9922h9.1191v.9922Zm-13.6792,0H13.6787v-.9922h9.1191v.9922Zm-13.6787,0H0v-.9922H9.1191v.9922Z" fill="#6c66ac"/><g><path d="M26.7647,2.4867c-.9208,.403-1.6877,.7327-1.7073,.7327-.0171,0-.0684,.022-.1099,.0464-.0415,.0269-1.0209,.4616-2.1738,.9648-1.1553,.5056-2.1054,.9257-2.1127,.9306-.0195,.0195,.1661,.3908,.1978,.3981,.0171,.0024,.9257-.3835,2.0199-.8622,1.0942-.4763,1.993-.8671,1.9955-.8671,.0049,0,.0098,.6863,.0098,1.5265v1.5265h-.4738c-.2613,0-.5031,.0098-.5373,.0244-.1148,.0415-.1368,.1319-.1368,.5373v.3664h-.7865l-.0782,.0782c-.1294,.1343-.4396,1.0112-.5886,1.6731-.1246,.5544-.1661,.9135-.1685,1.4484-.0024,.8011,.1294,1.5461,.4372,2.4424,.1783,.5154,.276,.7303,.3566,.7694,.0586,.0318,.3883,.0366,2.3105,.0366,2.4937,0,2.3081,.0122,2.3985-.1661,.0806-.1563,.2906-.7449,.381-1.0576,.4225-1.4752,.4128-2.6305-.0366-4.1179-.1417-.4738-.3371-.9599-.4177-1.038l-.0659-.0684h-.9819v-.3737c0-.552-.0049-.5544-.6961-.5544h-.4518V3.6199l1.6364-.7181c.9013-.3957,1.6364-.7303,1.634-.7449,0-.0122-.0415-.1099-.0904-.2125l-.0904-.1905-1.6731,.7327Zm-.7327,5.0924v.232h-1.8318v-.4641h1.8318v.232Z" fill="#fff"/><path d="M23.7893,8.793c-.0733,.0684-.7718,1.6902-.7718,1.7952,0,.1001,.0611,.1734,.1661,.2027,.0586,.0147,.7352,.0244,1.9173,.0244q1.9515,0,2.0174-.1172c.0147-.0293,.0269-.083,.0269-.1246,0-.1099-.6936-1.7121-.7694-1.7805l-.0635-.0537h-2.462l-.0611,.0537Z" fill="#6c65ab"/></g></svg>`,
+        gondola2: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1558" height="16.0132" viewBox="0 0 50.1558 16.0132"><g><path d="M28.3167,15.5132h-6.4773c-2.3571,0-4.2679-1.9108-4.2679-4.2679V4.768c0-2.3571,1.9108-4.2679,4.2679-4.2679h6.4773c2.3571,0,4.2679,1.9108,4.2679,4.2679v6.4773c0,2.3572-1.9108,4.2679-4.2679,4.2679Z" fill="#6c65ab"/><path d="M28.3169,16.0132h-6.4775c-2.6289,0-4.7681-2.1387-4.7681-4.7676V4.7681c0-2.6289,2.1392-4.7681,4.7681-4.7681h6.4775c2.6289,0,4.7676,2.1392,4.7676,4.7681v6.4775c0,2.6289-2.1387,4.7676-4.7676,4.7676ZM21.8394,1c-2.0776,0-3.7681,1.6904-3.7681,3.7681v6.4775c0,2.0772,1.6904,3.7676,3.7681,3.7676h6.4775c2.0772,0,3.7676-1.6904,3.7676-3.7676V4.7681c0-2.0776-1.6904-3.7681-3.7676-3.7681h-6.4775Z" fill="#fff"/></g><path d="M50.1558,8.5029h-9.1191v-.9922h9.1191v.9922Zm-13.6787,0h-9.1191v-.9922h9.1191v.9922Zm-13.6792,0H13.6787v-.9922h9.1191v.9922Zm-13.6787,0H0v-.9922H9.1191v.9922Z" fill="#6c66ac"/><g><path d="M26.7647,2.4867c-.9208,.403-1.6877,.7327-1.7073,.7327-.0171,0-.0684,.022-.1099,.0464-.0415,.0269-1.0209,.4616-2.1738,.9648-1.1553,.5056-2.1054,.9257-2.1127,.9306-.0195,.0195,.1661,.3908,.1978,.3981,.0171,.0024,.9257-.3835,2.0199-.8622,1.0942-.4763,1.993-.8671,1.9955-.8671,.0049,0,.0098,.6863,.0098,1.5265v1.5265h-.4738c-.2613,0-.5031,.0098-.5373,.0244-.1148,.0415-.1368,.1319-.1368,.5373v.3664h-.7865l-.0782,.0782c-.1294,.1343-.4396,1.0112-.5886,1.6731-.1246,.5544-.1661,.9135-.1685,1.4484-.0024,.8011,.1294,1.5461,.4372,2.4424,.1783,.5154,.276,.7303,.3566,.7694,.0586,.0318,.3883,.0366,2.3105,.0366,2.4937,0,2.3081,.0122,2.3985-.1661,.0806-.1563,.2906-.7449,.381-1.0576,.4225-1.4752,.4128-2.6305-.0366-4.1179-.1417-.4738-.3371-.9599-.4177-1.038l-.0659-.0684h-.9819v-.3737c0-.552-.0049-.5544-.6961-.5544h-.4518V3.6199l1.6364-.7181c.9013-.3957,1.6364-.7303,1.634-.7449,0-.0122-.0415-.1099-.0904-.2125l-.0904-.1905-1.6731,.7327Zm-.7327,5.0924v.232h-1.8318v-.4641h1.8318v.232Z" fill="#fff"/><path d="M23.7893,8.793c-.0733,.0684-.7718,1.6902-.7718,1.7952,0,.1001,.0611,.1734,.1661,.2027,.0586,.0147,.7352,.0244,1.9173,.0244q1.9515,0,2.0174-.1172c.0147-.0293,.0269-.083,.0269-.1246,0-.1099-.6936-1.7121-.7694-1.7805l-.0635-.0537h-2.462l-.0611,.0537Z" fill="#6c65ab"/></g></svg>`,
+        chair1: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1558" height="16" viewBox="0 0 50.1558 16"><g><path d="M28.3077,15.5h-6.4596c-2.3851,0-4.2733-1.9-4.2733-4.3V4.8c0-2.4,1.8882-4.3,4.2733-4.3h6.4596c2.3851,0,4.2733,1.9,4.2733,4.3v6.5c-.0994,2.3-1.9876,4.2-4.2733,4.2Z" fill="#6c65ab"/><path d="M28.3077,16h-6.4596c-2.5839,0-4.7702-2.1-4.7702-4.8V4.8c0-2.6,2.087-4.8,4.7702-4.8h6.4596c2.5839,0,4.7702,2.1,4.7702,4.8v6.5c-.0994,2.6-2.1863,4.7-4.7702,4.7ZM21.8481,1c-2.087,0-3.7764,1.7-3.7764,3.8v6.5c0,2.1,1.6894,3.8,3.7764,3.8h6.4596c2.087,0,3.7764-1.7,3.7764-3.8V4.8c0-2.1-1.6894-3.8-3.7764-3.8,0,0-6.4596,0-6.4596,0Z" fill="#fff"/></g><path d="M50.1558,8.4961h-9.1191v-.9922h9.1191v.9922Zm-13.6787,0h-9.1191v-.9922h9.1191v.9922Zm-13.6792,0H13.6787v-.9922h9.1191v.9922h.0001Zm-13.6787,0H0v-.9922H9.1191v.9922h.0001Z" fill="#6c66ac"/><g><path d="M24.3095,1.9052c-.2775,.0796-.4837,.3589-.485,.6551,0,.0887,.0467,.2558,.0947,.3354,.2295,.385,.7418,.4528,1.053,.1396,.3696-.3719,.2023-1.0035-.2983-1.1353-.0999-.0261-.2646-.0235-.3644,.0052Z" fill="#fff"/><path d="M26.577,2.7673c-2.3473,.804-3.5624,1.2204-5.6606,1.9367-.8987,.3064-1.6418,.5631-1.6496,.5696-.0117,.0092-.0169,.0642-.0169,.1951,0,.1689,.0013,.1833,.0233,.1781,.0117-.0039,1.0076-.3431,2.2111-.7542,1.2035-.4125,2.1942-.749,2.202-.749,.0065,0,.0117,1.1942,.0117,3.2121,0,3.1322,0,3.216,.0246,3.3116,.0584,.2278,.2218,.4609,.4111,.5866,.1115,.0733,.262,.1257,.415,.144,.0687,.0079,.5421,.0131,1.1697,.0131h1.053v-.3784h-2.0847l-.0843-.0425c-.2464-.0874-.4085-.2505-.4902-.4907l-.0382-.1044V4.027l1.728-.5833c.9493-.321,1.9426-.659,2.2085-.749l.4857-.1644v-.2212c0-.1074-.0039-.1951-.0091-.1938-.0065,0-.865,.2933-1.9102,.6521h0Z" fill="#fff"/><path d="M22.6767,2.4924c-.2905,.0835-.4863,.3445-.4863,.6472,0,.4737,.4759,.8091,.9078,.6368,.2153-.0861,.3683-.2649,.4215-.492,.0817-.3471-.1388-.7047-.4941-.7973-.0986-.0261-.2503-.0235-.3488,.0052h0Z" fill="#fff"/><path d="M25.0888,5.3907c-.1673,.0222-.3177,.1031-.4396,.2362-.2075,.2258-.2477,.5585-.1012,.8391,.0532,.1031,.1712,.2297,.2633,.2845,.179,.1057,.4085,.1318,.6043,.0692,.4448-.1422,.6484-.6525,.4241-1.0596-.1427-.2584-.4487-.4084-.7509-.3693h0Z" fill="#fff"/><path d="M24.9942,7.0923c-.2775,.0535-.5006,.2153-.6108,.4411-.0947,.1944-.096,.2179-.0856,1.5242,.013,1.5307,.0117,1.472,.0428,1.5346,.0558,.1096,.1634,.184,.3164,.2205,.0687,.0157,.262,.0196,1.219,.0196,.6251,0,1.1399,.0039,1.1425,.0091,.0039,.0065,.0311,.4541,.061,.9957s.0558,.9983,.0597,1.0152l.0052,.0333h.5901l.0674-1.1921c.0726-1.2606,.0739-1.3167,.0182-1.4433-.0545-.1227-.1543-.2101-.2801-.2466-.0389-.0104-.3385-.0365-.7522-.0652-.9285-.0613-.8494-.0522-.8494-.0992,0-.0222,.0285-.475,.0648-1.0074,.0687-1.027,.07-1.1327,.0195-1.2749-.0726-.2036-.2996-.3889-.5512-.4502-.1219-.0287-.3618-.0365-.4772-.0144h-.0001Z" fill="#fff"/><path d="M30.7728,12.1267c-.1971,.2479-.4409,.4293-.638,.4737-.0506,.0117-.3929,.0731-.7599,.137-.367,.0652-.8313,.1462-1.031,.1814s-1.3176,.2323-2.4834,.4385-2.1216,.3758-2.1229,.3771c-.0039,.0026,.0622,.3784,.0674,.3836,.0026,.0026,.5187-.0874,1.149-.1997s2.0542-.3654,3.163-.5624c1.449-.2567,2.2068-.3989,2.2733-.4267,.1777-.0731,.3501-.2271,.4241-.3797,.0752-.1566,.1141-.3823,.0778-.4502-.0233-.0457-.0713-.0339-.1193,.0274h-.0001Z" fill="#fff"/></g></svg>`,
+        chair2: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1558" height="16" viewBox="0 0 50.1558 16"><g><path d="M28.3077,15.5h-6.4596c-2.3851,0-4.2733-1.9-4.2733-4.3V4.8c0-2.4,1.8882-4.3,4.2733-4.3h6.4596c2.3851,0,4.2733,1.9,4.2733,4.3v6.5c-.0994,2.3-1.9876,4.2-4.2733,4.2Z" fill="#6c65ab"/><path d="M28.3077,16h-6.4596c-2.5839,0-4.7702-2.1-4.7702-4.8V4.8c0-2.6,2.087-4.8,4.7702-4.8h6.4596c2.5839,0,4.7702,2.1,4.7702,4.8v6.5c-.0994,2.6-2.1863,4.7-4.7702,4.7ZM21.8481,1c-2.087,0-3.7764,1.7-3.7764,3.8v6.5c0,2.1,1.6894,3.8,3.7764,3.8h6.4596c2.087,0,3.7764-1.7,3.7764-3.8V4.8c0-2.1-1.6894-3.8-3.7764-3.8,0,0-6.4596,0-6.4596,0Z" fill="#fff"/></g><path d="M50.1558,8.4961h-9.1191v-.9922h9.1191v.9922Zm-13.6787,0h-9.1191v-.9922h9.1191v.9922Zm-13.6792,0H13.6787v-.9922h9.1191v.9922h.0001Zm-13.6787,0H0v-.9922H9.1191v.9922h.0001Z" fill="#6c66ac"/><g><path d="M24.3095,1.9052c-.2775,.0796-.4837,.3589-.485,.6551,0,.0887,.0467,.2558,.0947,.3354,.2295,.385,.7418,.4528,1.053,.1396,.3696-.3719,.2023-1.0035-.2983-1.1353-.0999-.0261-.2646-.0235-.3644,.0052Z" fill="#fff"/><path d="M26.577,2.7673c-2.3473,.804-3.5624,1.2204-5.6606,1.9367-.8987,.3064-1.6418,.5631-1.6496,.5696-.0117,.0092-.0169,.0642-.0169,.1951,0,.1689,.0013,.1833,.0233,.1781,.0117-.0039,1.0076-.3431,2.2111-.7542,1.2035-.4125,2.1942-.749,2.202-.749,.0065,0,.0117,1.1942,.0117,3.2121,0,3.1322,0,3.216,.0246,3.3116,.0584,.2278,.2218,.4609,.4111,.5866,.1115,.0733,.262,.1257,.415,.144,.0687,.0079,.5421,.0131,1.1697,.0131h1.053v-.3784h-2.0847l-.0843-.0425c-.2464-.0874-.4085-.2505-.4902-.4907l-.0382-.1044V4.027l1.728-.5833c.9493-.321,1.9426-.659,2.2085-.749l.4857-.1644v-.2212c0-.1074-.0039-.1951-.0091-.1938-.0065,0-.865,.2933-1.9102,.6521h0Z" fill="#fff"/><path d="M22.6767,2.4924c-.2905,.0835-.4863,.3445-.4863,.6472,0,.4737,.4759,.8091,.9078,.6368,.2153-.0861,.3683-.2649,.4215-.492,.0817-.3471-.1388-.7047-.4941-.7973-.0986-.0261-.2503-.0235-.3488,.0052h0Z" fill="#fff"/><path d="M25.0888,5.3907c-.1673,.0222-.3177,.1031-.4396,.2362-.2075,.2258-.2477,.5585-.1012,.8391,.0532,.1031,.1712,.2297,.2633,.2845,.179,.1057,.4085,.1318,.6043,.0692,.4448-.1422,.6484-.6525,.4241-1.0596-.1427-.2584-.4487-.4084-.7509-.3693h0Z" fill="#fff"/><path d="M24.9942,7.0923c-.2775,.0535-.5006,.2153-.6108,.4411-.0947,.1944-.096,.2179-.0856,1.5242,.013,1.5307,.0117,1.472,.0428,1.5346,.0558,.1096,.1634,.184,.3164,.2205,.0687,.0157,.262,.0196,1.219,.0196,.6251,0,1.1399,.0039,1.1425,.0091,.0039,.0065,.0311,.4541,.061,.9957s.0558,.9983,.0597,1.0152l.0052,.0333h.5901l.0674-1.1921c.0726-1.2606,.0739-1.3167,.0182-1.4433-.0545-.1227-.1543-.2101-.2801-.2466-.0389-.0104-.3385-.0365-.7522-.0652-.9285-.0613-.8494-.0522-.8494-.0992,0-.0222,.0285-.475,.0648-1.0074,.0687-1.027,.07-1.1327,.0195-1.2749-.0726-.2036-.2996-.3889-.5512-.4502-.1219-.0287-.3618-.0365-.4772-.0144h-.0001Z" fill="#fff"/><path d="M30.7728,12.1267c-.1971,.2479-.4409,.4293-.638,.4737-.0506,.0117-.3929,.0731-.7599,.137-.367,.0652-.8313,.1462-1.031,.1814s-1.3176,.2323-2.4834,.4385-2.1216,.3758-2.1229,.3771c-.0039,.0026,.0622,.3784,.0674,.3836,.0026,.0026,.5187-.0874,1.149-.1997s2.0542-.3654,3.163-.5624c1.449-.2567,2.2068-.3989,2.2733-.4267,.1777-.0731,.3501-.2271,.4241-.3797,.0752-.1566,.1141-.3823,.0778-.4502-.0233-.0457-.0713-.0339-.1193,.0274h-.0001Z" fill="#fff"/></g></svg>`,
+        bugel1: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="50.1558" height="16" viewBox="0 0 50.1558 16"><g id="a-2"><g><path d="M28.3077,15.5h-6.4596c-2.3851,0-4.2733-1.9-4.2733-4.3V4.8c0-2.4,1.8882-4.3,4.2733-4.3h6.4596c2.3851,0,4.2733,1.9,4.2733,4.3v6.5c-.0994,2.3-1.9876,4.2-4.2733,4.2Z" fill="#6c65ab"/><path d="M28.3077,16h-6.4596c-2.5839,0-4.7702-2.1-4.7702-4.8V4.8c0-2.6,2.087-4.8,4.7702-4.8h6.4596c2.5839,0,4.7702,2.1,4.7702,4.8v6.5c-.0994,2.6-2.1863,4.7-4.7702,4.7ZM21.8481,1c-2.087,0-3.7764,1.7-3.7764,3.8v6.5c0,2.1,1.6894,3.8,3.7764,3.8h6.4596c2.087,0,3.7764-1.7,3.7764-3.8V4.8c0-2.1-1.6894-3.8-3.7764-3.8,0,0-6.4596,0-6.4596,0Z" fill="#fff"/></g></g><path d="M50.1558,8.4961h-9.1191v-.9922h9.1191v.9922Zm-13.6787,0h-9.1191v-.9922h9.1191v.9922Zm-13.6792,0H13.6787v-.9922h9.1191v.9922h.0001Zm-13.6787,0H0v-.9922H9.1191v.9922h.0001Z" fill="#6c66ac"/><g><path d="M23.5537,4.5986c.0106,.0058,.0211,.0115,.032,.0175,.0861,.0507,.1733,.1182,.219,.2096,.0112,0,.0223,0,.0339,0,.272,.0007,.544,.0016,.8161,.0027,.1315,.0005,.2631,.001,.3946,.0013,.1147,.0003,.2293,.0007,.344,.0012,.0607,.0003,.1214,.0005,.1821,.0006,.0572,0,.1144,.0003,.1715,.0007,.0209,.0001,.0419,.0001,.0628,.0001,.1632-.0001,.2839,.0151,.4059,.1326,.0678,.0732,.094,.1582,.1019,.2565-.0084,.1295-.0548,.2239-.1472,.3139-.0707,.0588-.1458,.0805-.2365,.0804q-.0126,0-.0254,0c-.0281,0-.0563,0-.0844-.0001-.0201,0-.0403,0-.0604,0-.0547,0-.1095,0-.1642-.0002-.0572,0-.1144,0-.1715,0-.1083,0-.2166-.0001-.3249-.0003-.1233-.0001-.2466-.0002-.3699-.0003-.2537-.0001-.5073-.0003-.761-.0006l.012,.0239c.003,.0191,.0054,.0384,.0075,.0576q.0021,.0183,.0041,.037c.0015,.0135,.0029,.0269,.0044,.0408,.0016,.0142,.0032,.0284,.0048,.043,.0035,.031,.0069,.062,.0103,.093,.0083,.0752,.0167,.1504,.0251,.2256,.002,.0176,.0039,.0352,.0059,.0528,.0225,.2014,.0457,.4026,.0692,.6039,.003,.0261,.0061,.0522,.0091,.0782,.001,.0084,.002,.0168,.003,.0255,.0019,.0167,.0039,.0334,.0058,.0502,.0047,.0402,.0094,.0805,.0141,.1207,.0089,.0764,.0177,.1527,.0263,.2291,.0016,.0144,.0033,.0289,.0049,.0437,.0031,.0271,.0061,.0541,.0091,.0812,.0013,.0119,.0027,.0238,.0041,.0361q.0017,.0156,.0035,.0314,.0035,.0285,.0159,.0623c.0309,.0222,.0619,.0426,.0941,.0627,.022,.014,.0439,.028,.0659,.0421,.0124,.0079,.0249,.0159,.0377,.024,.0807,.0517,.1607,.1046,.2408,.1573,.0089,.0058,.0177,.0116,.0268,.0176,.1748,.1149,.3491,.2307,.523,.3471,.0348,.0233,.0697,.0465,.1047,.0695,.0127,.0084,.0254,.0167,.0385,.0254,.0111,.0073,.0222,.0145,.0336,.022,.1248,.0874,.2019,.2106,.2375,.3577,.0163,.0977,.0127,.1969,.0125,.2957,0,.0251,.0002,.0502,.0002,.0753,.0002,.0678,.0002,.1357,.0001,.2035,0,.0568,0,.1135,.0001,.1703,.0002,.1339,.0001,.2679,0,.4018-.0001,.1379,0,.2758,.0004,.4138,.0003,.1187,.0003,.2374,.0003,.3561,0,.0708,0,.1415,.0002,.2123,.0002,.0666,.0001,.1331,0,.1996,0,.0243,0,.0487,.0001,.073,.0007,.1556-.0009,.3007-.1018,.4291-.0081,.0116-.0163,.0232-.0246,.0351-.0866,.1003-.2103,.1462-.3392,.159-.1449,.0045-.2699-.0505-.3757-.1486-.0803-.0847-.1225-.1896-.1224-.3054q0-.0123,0-.0249c0-.0276,0-.0553,.0001-.0829,0-.0198,0-.0396,0-.0594,0-.0538,0-.1076,.0002-.1613,0-.0562,0-.1124,0-.1685,0-.1064,.0001-.2128,.0003-.3192,.0001-.1211,.0002-.2423,.0003-.3634,.0001-.2492,.0003-.4984,.0006-.7476-.0094-.0037-.0188-.0073-.0285-.0111-.0282-.0115-.0507-.0239-.0758-.041-.0083-.0056-.0166-.0112-.0251-.0169-.0088-.006-.0177-.0121-.0268-.0183-.0194-.0131-.0387-.0261-.0581-.0392q-.015-.0101-.0303-.0205c-.0488-.0328-.098-.0651-.1472-.0974-.02-.0131-.0399-.0263-.0599-.0394-.01-.0066-.0201-.0132-.0305-.02-.1651-.1086-.33-.2175-.4942-.3275-.0641-.0428-.1285-.0851-.1936-.1265q-.0102-.0065-.0206-.0131c-.0322-.0205-.0644-.0408-.0967-.0611-.0941-.0595-.187-.1202-.2606-.2048q-.0132-.0152-.0268-.0308t-.027-.032-.0282-.0331c-.027-.0324-.0534-.0652-.0794-.0984-.0068-.0084-.0136-.0168-.0206-.0255-.1143-.1537-.1261-.3592-.146-.5429-.003-.0264-.006-.0529-.0091-.0793-.0094-.0828-.0185-.1657-.0275-.2486-.0028-.0258-.0056-.0516-.0084-.0773-.0113-.104-.0226-.2079-.0338-.3119-.033-.3055-.0696-.6105-.106-.9155-.0084-.0706-.0168-.1412-.0252-.2118-.0038-.032-.0076-.0641-.0115-.0961-.0051-.0428-.0102-.0856-.0152-.1284-.0015-.0122-.0029-.0245-.0045-.0371-.0192-.1641-.022-.3111,.0372-.4687,.0039-.0105,.0078-.021,.0119-.0319,.0689-.1582,.2149-.2789,.3691-.3483,.1926-.0753,.4045-.0666,.5871,.0336Z" fill="#fff"/><path d="M30.175,10.2127c.0435,.2568,.0116,.4995-.1396,.7168-.164,.2134-.3755,.3036-.6305,.3645-.0373,.0089-.0746,.0181-.1118,.0272-.0204,.005-.0409,.01-.0613,.015-.1128,.0276-.2253,.0564-.3378,.0852-.0649,.0166-.1297,.0331-.1946,.0497-.0137,.0035-.0274,.007-.0416,.0106-.1714,.0437-.343,.0872-.5145,.1307-.036,.0091-.072,.0183-.108,.0274-.1745,.0442-.349,.0884-.5235,.1326-.0905,.0229-.1811,.0458-.2716,.0687q-.0133,.0034-.027,.0068c-.2377,.0602-.4752,.121-.7125,.1829-.2277,.0594-.4558,.1171-.6842,.174-.0159,.004-.0318,.0079-.0477,.0119-.0079,.002-.0158,.0039-.024,.006-.0406,.0101-.0812,.0202-.1218,.0304-.0082,.002-.0164,.0041-.0248,.0062-.2119,.0529-.4237,.1063-.6355,.16q-.0143,.0036-.0289,.0073c-.2628,.0666-.5254,.1339-.7878,.2023-.2118,.0552-.4241,.1087-.6366,.1615-.2325,.0578-.4646,.1172-.6966,.1772-.2571,.0665-.5145,.132-.7722,.196-.1656,.0411-.331,.083-.4961,.1258-.0086,.0022-.0172,.0045-.026,.0067-.0843,.0219-.1685,.0438-.2528,.0658-.0234,.0061-.0468,.0122-.0702,.0183-.0287,.0075-.0573,.015-.086,.0225-.0127,.0033-.0254,.0066-.0385,.01-.011,.0029-.0221,.0058-.0335,.0088q-.0294,.0061-.0772,.0061c-.0144-.053-.0285-.106-.0426-.1591q-.0061-.0226-.0124-.0457c-.0038-.0144-.0076-.0289-.0116-.0438-.0036-.0133-.0071-.0267-.0108-.0404q-.0063-.0337,.0056-.0695,.0246-.0101,.0575-.0181,.0186-.0046,.0376-.0094c.0137-.0032,.0274-.0065,.0415-.0098,.0142-.0035,.0285-.007,.0431-.0106,.0309-.0076,.0618-.0151,.0927-.0225,.0493-.0119,.0985-.0239,.1478-.036,.0504-.0124,.1009-.0248,.1513-.0371,.1476-.0361,.2949-.0734,.4421-.1111,.0497-.0127,.0993-.0254,.149-.0381,.0128-.0033,.0256-.0065,.0388-.0099,.1085-.0277,.2171-.0552,.3257-.0827,.0177-.0045,.0353-.0089,.053-.0134,.0088-.0022,.0176-.0045,.0267-.0068,.0089-.0022,.0178-.0045,.0269-.0068,.0089-.0023,.0179-.0045,.0271-.0068,.0273-.0069,.0545-.0138,.0818-.0207,.009-.0023,.018-.0046,.0273-.0069,.2615-.0662,.5228-.1331,.7839-.2007,.2407-.0624,.4817-.1236,.7231-.1838,.2379-.0593,.4757-.1189,.7133-.1793q.022-.0056,.0444-.0113c.2209-.0562,.4415-.1133,.6621-.1708,.2226-.0579,.4455-.1141,.6687-.1697,.0081-.002,.0162-.004,.0245-.0061,.0163-.0041,.0327-.0081,.049-.0122,.0406-.0101,.0811-.0202,.1217-.0303,.008-.002,.016-.004,.0242-.006,.1625-.0405,.3249-.0817,.4872-.1231,.013-.0033,.0261-.0067,.0395-.0101,.0267-.0068,.0534-.0136,.0801-.0204,.0135-.0034,.027-.0069,.0409-.0104,.0136-.0035,.0273-.007,.0413-.0105,.168-.0429,.3361-.0854,.5042-.128q.431-.1092,.8618-.219c.1214-.031,.2429-.0619,.3644-.0922,.0567-.0142,.1134-.0284,.1701-.0426,.0392-.0098,.0784-.0196,.1176-.0293,.0435-.0108,.0869-.0217,.1304-.0326,.0127-.0031,.0255-.0062,.0386-.0095,.1707-.0433,.3121-.1029,.4122-.2542,.0665-.122,.071-.2495,.0665-.3854,.0488-.012,.0976-.024,.1464-.0359,.0138-.0034,.0277-.0068,.042-.0104,.0133-.0032,.0267-.0065,.0404-.0098,.0123-.003,.0245-.006,.0372-.0091q.0329-.0066,.0807-.0066Z" fill="#fff"/><path d="M23.6341,2.7283c.0264,.0198,.0509,.0404,.0753,.0626q.0136,.0121,.0274,.0245c.156,.1471,.2536,.3492,.2628,.5638,.0065,.265-.0554,.4884-.2356,.6865-.1653,.1733-.3705,.276-.6114,.2836-.2642,.0032-.4841-.085-.6757-.2682-.1689-.184-.2487-.4192-.2409-.6668,.0133-.2414,.1191-.454,.2928-.6194,.3225-.2715,.7537-.296,1.1054-.0668Z" fill="#fff"/><path d="M22.2434,8.1714c.0364,.0278,.0713,.0573,.1061,.0871,.0337,.0285,.0687,.0553,.1036,.0823,.0694,.0543,.1377,.1099,.206,.1656,.0611,.0497,.1232,.0977,.1858,.1455,.0543,.0418,.1071,.0854,.1602,.1288,.049,.0399,.0984,.079,.1487,.1173,.0587,.0447,.1162,.0907,.1733,.1374,.0574,.0469,.1151,.0932,.174,.1382q.0185,.0142,.0373,.0287c.0209,.016,.0419,.032,.0629,.0478,.0245,.0184,.0487,.037,.073,.0557,.0075,.0056,.0151,.0112,.0229,.0169,.0635,.0493,.0998,.1043,.1142,.1841-.001,.0857-.0136,.1393-.0747,.2006-.0653,.0585-.1169,.0689-.2043,.0678-.1052-.013-.185-.0972-.2626-.1635-.0403-.0344-.0818-.0671-.1235-.0997-.0142-.0111-.0284-.0222-.0427-.0333q-.0101-.0079-.0205-.016c-.0264-.0207-.0526-.0417-.0788-.0627-.0391-.0314-.0784-.0625-.1179-.0934-.0691-.0541-.1376-.1088-.2055-.1643-.0692-.0565-.1393-.1113-.2103-.1655-.0459-.0353-.0907-.072-.1356-.1087-.0577-.0471-.1156-.0937-.1748-.1389-.0123-.0095-.0247-.0189-.0374-.0287-.0203-.0155-.0406-.031-.061-.0463-.0228-.0172-.0455-.0346-.0682-.052-.007-.0052-.014-.0104-.0212-.0158-.0556-.0429-.0932-.0876-.1155-.1545-.0014-.0214-.0021-.0428-.0022-.0642-.0002-.0112-.0003-.0224-.0005-.0339,.0058-.0703,.0383-.1145,.0864-.1648,.1008-.0609,.2034-.0631,.3028,.0024Z" fill="#fff"/><path d="M27.9743,2.8312c.0515,.0056,.0809,.0389,.1165,.0732,.0127,.0119,.0254,.0239,.0381,.0358,.0062,.0059,.0124,.0117,.0188,.0177,.0369,.0345,.0752,.0674,.1134,.1003-.0069,.0458-.027,.0682-.0583,.1016-.0097,.0104-.0193,.0209-.0293,.0317q-.0158,.0169-.0319,.0341c-.0225,.0243-.0448,.0488-.0672,.0732-.0056,.0061-.0113,.0122-.0171,.0186-.0368,.0401-.0729,.0808-.1085,.122-.023,.026-.0465,.0515-.0701,.077-.0057,.0061-.0114,.0122-.0172,.0185-.0056,.0061-.0112,.0121-.017,.0184-.045,.049-.0863,.1002-.1264,.1533-.0061,.007-.0123,.0139-.0186,.0211h-.0239c-.0032,.0071-.0064,.0143-.0097,.0216-.0145,.0267-.0286,.0423-.0508,.0628-.0367,.0355-.0689,.073-.1008,.1128-.0371,.046-.0751,.0885-.1176,.1296-.0281,.028-.0536,.0579-.0795,.0879-.0294,.0336-.0596,.0664-.0898,.0992-.0361,.0392-.072,.0785-.1068,.1188-.0372,.0429-.0757,.0846-.1143,.1262-.0458,.0494-.091,.0991-.1351,.15-.0328,.0376-.0663,.0746-.0998,.1116-.0195,.0217-.0388,.0434-.058,.0654q-.0144,.0164-.0291,.0331c-.0087,.01-.0175,.02-.0265,.0303q-.0221,.0219-.046,.0219c-.0032-.0064-.0064-.0128-.0097-.0193-.0556-.1057-.1242-.193-.2174-.2675v-.0239h.0239c.0032-.0071,.0064-.0141,.0097-.0214,.0143-.0267,.0293-.0451,.0502-.067q.0106-.0112,.0213-.0226c.0075-.0078,.0149-.0156,.0226-.0236,.0153-.0162,.0306-.0324,.0459-.0486q.0109-.0115,.022-.0233c.0281-.03,.0551-.061,.0819-.0922,.0284-.0324,.0577-.0641,.0869-.0958,.0363-.0394,.0724-.079,.1076-.1195,.0351-.0405,.0712-.0801,.1076-.1195q.092-.0972,.1733-.2032h.0239c.0033-.0071,.0065-.0142,.0099-.0215,.0137-.0256,.0275-.0432,.0474-.0642,.0065-.0069,.013-.0138,.0197-.0209,.0069-.0072,.0138-.0144,.0209-.0218,.0142-.0151,.0285-.0302,.0427-.0453,.0068-.0072,.0136-.0144,.0206-.0218,.0208-.0223,.0409-.045,.0608-.068,.0366-.0425,.0746-.0836,.1128-.1247,.0453-.0488,.0898-.098,.1334-.1483,.0288-.0327,.0582-.0647,.0877-.0967,.0434-.0472,.0863-.0947,.1282-.1431,.0423-.0484,.0856-.096,.1287-.1437Z" fill="#fff"/><path d="M25.3661,6.002c.0236,.0007,.0473,.0013,.0709,.0018,.0576,.0014,.1151,.0037,.1726,.0064-.0194,.0408-.0417,.0698-.0725,.1031-.0097,.0105-.0193,.0211-.0293,.0319-.0098,.0107-.0196,.0213-.0297,.0323-.0175,.0194-.0349,.0388-.0523,.0583-.0456,.0507-.0917,.101-.1378,.1513-.0526,.0573-.1046,.115-.1565,.1729-.0574,.064-.1151,.1279-.1733,.1912-.0868,.0946-.1727,.1899-.257,.2868-.0663-.0405-.1207-.0908-.177-.1442q-.0139-.0129-.0281-.0261c-.0088-.0083-.0176-.0166-.0267-.0251-.008-.0075-.016-.015-.0242-.0228q-.0189-.0209-.0308-.0567h.0239c.0032-.0071,.0063-.0142,.0096-.0215,.0149-.0273,.0299-.0439,.0524-.0652,.0293-.0284,.057-.0572,.0837-.0881,.0377-.0437,.0766-.0862,.1158-.1285,.0609-.0657,.121-.132,.1808-.1987,.0262-.0291,.0523-.0582,.079-.0868q.0291-.0318,.0509-.0671c.0935-.1315,.2074-.1125,.3556-.1053Z" fill="#fff"/></g></svg>`,
+        education_w: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#52ae32"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><g><path d="M10.8664,3.3253c-.3247,.0817-.587,.3225-.701,.6494-.0344,.1032-.043,.1656-.0366,.3311,.0065,.1828,.0172,.2236,.0839,.3655,.1677,.3505,.4881,.5612,.8601,.5612,.2817,.0022,.5182-.0946,.7074-.286,.3763-.3806,.3698-.9827-.0129-1.3654-.2322-.2322-.587-.3333-.901-.2559Z" fill="#fff"/><path d="M7.5378,4.723c-.043,.0172-.1183,.0624-.1656,.1011-.1312,.114-1.3289,1.4342-1.3697,1.5095-.0194,.0387-.0387,.1312-.043,.2086-.0086,.1226-.0022,.1548,.0516,.258,.0688,.1355,.2,.2451,.3354,.2817,.1183,.0323,.3075-.0022,.4128-.0731,.043-.0301,.2623-.2559,.4881-.501,.2258-.2473,.4645-.5053,.529-.5741l.1183-.1269,.2279,.0581c.1247,.0301,.2774,.0688,.3397,.0882l.1118,.0301-.4559,.4451c-.2516,.2451-.63,.6193-.8429,.8343-.4494,.4494-.4946,.5161-.4946,.7526,0,.1441,.0108,.1763,.3053,.8665,.2989,.7074,.3032,.716,.2559,.744-.1118,.071-2.7545,1.4321-2.7781,1.4321-.0774,0-.3913-.1892-.5311-.3204-.1785-.1677-.2494-.2752-.4343-.6451-.0817-.1677-.1613-.2967-.2021-.3311-.1957-.1634-.4903-.114-.6279,.1075-.0387,.0624-.0516,.114-.0516,.2107,0,.1161,.0151,.1591,.1419,.4214,.0774,.1613,.1849,.3548,.2344,.43,.2258,.3333,.5311,.6107,.8709,.787,.2365,.1204,6.6421,2.4878,6.8593,2.533,.5376,.1118,1.0515,.0344,1.6772-.258,.243-.1118,.301-.157,.3569-.2795,.0968-.2107,.0065-.4516-.2064-.5505-.1441-.0667-.2408-.0538-.5118,.0688-.3569,.1613-.5634,.215-.8214,.2193-.1398,0-.2623-.0108-.3483-.0344-.1183-.0301-.759-.2602-1.1375-.4042l-.1333-.0516,.3204-1.1826c.3569-1.3203,.3634-1.3611,.2645-1.5697-.0387-.0839-.2451-.3268-.7354-.8709-.3741-.4171-.6838-.7633-.6881-.7719-.0022-.0065,.1935-.2043,.4365-.4387,.2752-.2666,.4451-.4171,.4516-.3978,.0065,.0151,.0452,.1333,.086,.2602,.0817,.258,.1462,.3569,.2774,.4343,.1398,.0796,1.8256,.5569,1.9696,.5548,.2473,0,.4623-.1935,.5053-.4516,.0323-.2-.1054-.4516-.2946-.5376-.0516-.0237-.4085-.1312-.7934-.243l-.701-.1978-.1032-.344c-.086-.2795-.1011-.3505-.0796-.3784,.0151-.0215,.0581-.0989,.0968-.1763,.0624-.129,.0688-.157,.0688-.344,0-.1849-.0065-.2172-.0688-.3505-.0968-.2043-.4516-.5612-.6515-.6558-.172-.0817-2.2083-.6064-2.3481-.6064-.0516,.0022-.129,.0151-.1742,.0301Zm1.4686,5.9218c0,.028-.4903,1.8578-.5032,1.8686-.0065,.0086-2.2793-.8321-2.2965-.8493-.0065-.0086,.5161-.2903,1.1654-.6257,.8192-.4236,1.1998-.63,1.2493-.6816l.0731-.0753,.1548,.1677c.086,.0925,.1548,.1806,.157,.1957Z" fill="#fff"/></g></svg>`,
+        education_s: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#52ae32"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><g><path d="M10.8664,3.3253c-.3247,.0817-.587,.3225-.701,.6494-.0344,.1032-.043,.1656-.0366,.3311,.0065,.1828,.0172,.2236,.0839,.3655,.1677,.3505,.4881,.5612,.8601,.5612,.2817,.0022,.5182-.0946,.7074-.286,.3763-.3806,.3698-.9827-.0129-1.3654-.2322-.2322-.587-.3333-.901-.2559Z" fill="#fff"/><path d="M7.5378,4.723c-.043,.0172-.1183,.0624-.1656,.1011-.1312,.114-1.3289,1.4342-1.3697,1.5095-.0194,.0387-.0387,.1312-.043,.2086-.0086,.1226-.0022,.1548,.0516,.258,.0688,.1355,.2,.2451,.3354,.2817,.1183,.0323,.3075-.0022,.4128-.0731,.043-.0301,.2623-.2559,.4881-.501,.2258-.2473,.4645-.5053,.529-.5741l.1183-.1269,.2279,.0581c.1247,.0301,.2774,.0688,.3397,.0882l.1118,.0301-.4559,.4451c-.2516,.2451-.63,.6193-.8429,.8343-.4494,.4494-.4946,.5161-.4946,.7526,0,.1441,.0108,.1763,.3053,.8665,.2989,.7074,.3032,.716,.2559,.744-.1118,.071-2.7545,1.4321-2.7781,1.4321-.0774,0-.3913-.1892-.5311-.3204-.1785-.1677-.2494-.2752-.4343-.6451-.0817-.1677-.1613-.2967-.2021-.3311-.1957-.1634-.4903-.114-.6279,.1075-.0387,.0624-.0516,.114-.0516,.2107,0,.1161,.0151,.1591,.1419,.4214,.0774,.1613,.1849,.3548,.2344,.43,.2258,.3333,.5311,.6107,.8709,.787,.2365,.1204,6.6421,2.4878,6.8593,2.533,.5376,.1118,1.0515,.0344,1.6772-.258,.243-.1118,.301-.157,.3569-.2795,.0968-.2107,.0065-.4516-.2064-.5505-.1441-.0667-.2408-.0538-.5118,.0688-.3569,.1613-.5634,.215-.8214,.2193-.1398,0-.2623-.0108-.3483-.0344-.1183-.0301-.759-.2602-1.1375-.4042l-.1333-.0516,.3204-1.1826c.3569-1.3203,.3634-1.3611,.2645-1.5697-.0387-.0839-.2451-.3268-.7354-.8709-.3741-.4171-.6838-.7633-.6881-.7719-.0022-.0065,.1935-.2043,.4365-.4387,.2752-.2666,.4451-.4171,.4516-.3978,.0065,.0151,.0452,.1333,.086,.2602,.0817,.258,.1462,.3569,.2774,.4343,.1398,.0796,1.8256,.5569,1.9696,.5548,.2473,0,.4623-.1935,.5053-.4516,.0323-.2-.1054-.4516-.2946-.5376-.0516-.0237-.4085-.1312-.7934-.243l-.701-.1978-.1032-.344c-.086-.2795-.1011-.3505-.0796-.3784,.0151-.0215,.0581-.0989,.0968-.1763,.0624-.129,.0688-.157,.0688-.344,0-.1849-.0065-.2172-.0688-.3505-.0968-.2043-.4516-.5612-.6515-.6558-.172-.0817-2.2083-.6064-2.3481-.6064-.0516,.0022-.129,.0151-.1742,.0301Zm1.4686,5.9218c0,.028-.4903,1.8578-.5032,1.8686-.0065,.0086-2.2793-.8321-2.2965-.8493-.0065-.0086,.5161-.2903,1.1654-.6257,.8192-.4236,1.1998-.63,1.2493-.6816l.0731-.0753,.1548,.1677c.086,.0925,.1548,.1806,.157,.1957Z" fill="#fff"/></g></svg>`,
+        rental_w: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#52ae32"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><path d="M6.5554,3.0892c-.1379,.131-.1379,.324-.0138,.5722,.0552,.1034,.0758,.2275,.0483,.2689-.0276,.0483-.2482,.2206-.4964,.3792-.4619,.3034-.5998,.5171-.5171,.8273,.0965,.3999,.9308,.5447,1.2479,.2206,.0965-.0896,.1724-.2482,.1793-.3585,.0138-.5447,.1034-.4206,.8825,1.1996,.4344,.9032,.786,1.6754,.786,1.7098,0,.0414-.5033,1.1169-1.1238,2.3924l-1.1169,2.3235-.2206-.0483c-.6826-.1517-1.1652,.0414-1.1996,.4964-.0276,.2896,.1793,.6688,.4481,.848,.1655,.1103,.1724,.1379,.131,.586-.0276,.2551-.0276,.4688,.0069,.4688,.0276,0,.1862-.131,.3447-.2896l.2965-.2896,.5171,.0207c.4688,.0138,.524,.0069,.6895-.1586,.3171-.3171,.1862-.8067-.324-1.2272l-.2275-.1793,.717-1.4754c.393-.8067,.8549-1.7719,1.0273-2.1442,.1724-.3654,.3309-.6688,.3585-.6688,.0207,0,.2344,.393,.4619,.8825,.2275,.4826,.6895,1.4478,1.0273,2.1442l.6067,1.2617-.2206,.1862c-.5102,.4137-.6412,.9032-.324,1.2203,.1655,.1655,.2206,.1724,.6895,.1586l.5171-.0207,.2965,.2896c.1586,.1586,.3171,.2896,.3447,.2896,.0345,0,.0345-.2137,.0069-.4688-.0414-.4481-.0345-.4757,.131-.586,.2689-.1793,.4757-.5585,.4481-.848-.0414-.4619-.4964-.6343-1.31-.4964-.0965,.0138-.3585-.4619-1.2341-2.289-.6136-1.2686-1.1169-2.3441-1.1169-2.3786,0-.0414,.3516-.8067,.786-1.7098,.7791-1.6271,.8687-1.7512,.8825-1.1996,.0069,.1103,.0827,.2689,.1793,.3585,.3171,.324,1.1514,.1793,1.2479-.2206,.0827-.3103-.0552-.524-.5171-.8273-.2482-.1586-.4688-.3309-.4964-.3723-.0276-.0483,0-.1862,.0552-.3103,.193-.3999-.0207-.7308-.393-.6136-.1517,.0483-.5516,.7722-.5516,.9997,0,.1379-1.4478,3.2404-1.5168,3.2404-.062,0-1.5168-3.1094-1.5168-3.2473,0-.1999-.3861-.9308-.5171-.9859-.1793-.0689-.2896-.0483-.4068,.0689Zm.131,1.5237c-.1034,.6412-.1379,.6757-.5447,.5654-.3654-.1034-.3309-.2896,.1172-.5791,.193-.131,.3861-.2344,.4137-.2344,.0276-.0069,.0345,.1103,.0138,.2482Zm5.033-.0138c.4619,.2896,.5033,.4757,.131,.5791-.4068,.1103-.4412,.0758-.5447-.5654-.0207-.1379-.0207-.2551,0-.2551s.2068,.1103,.4137,.2413ZM6.1211,13.1828c-.0069,.0552-.0345,.1655-.0552,.2482-.0345,.1172,0,.1655,.1793,.2344,.1517,.0621,.2344,.0689,.2482,.0207,.0138-.0345,.0689-.131,.1241-.1999,.0965-.1241,.1103-.1241,.3103,.0965,.1172,.1241,.193,.2551,.1724,.2896-.0621,.1034-.3861,.0827-.7515-.0414s-.9101-.5929-.8342-.717c.0758-.1172,.6205-.0552,.6067,.0689Zm6.3567-.0621c.0758,.1172-.4757,.586-.8342,.7101-.3654,.1241-.6895,.1448-.7515,.0414-.0207-.0345,.0552-.1655,.1724-.2896,.1999-.2206,.2137-.2206,.3103-.0965,.0552,.0689,.1103,.1655,.1241,.1999,.0276,.0896,.4619-.0689,.4619-.1724,0-.0345-.0345-.1241-.0689-.1999-.0414-.0758-.0552-.1655-.0345-.1999,.0552-.0896,.5654-.0896,.6205,.0069Z" fill="#fff"/></svg>`,
+        rental_s: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#52ae32"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><path d="M6.5554,3.0892c-.1379,.131-.1379,.324-.0138,.5722,.0552,.1034,.0758,.2275,.0483,.2689-.0276,.0483-.2482,.2206-.4964,.3792-.4619,.3034-.5998,.5171-.5171,.8273,.0965,.3999,.9308,.5447,1.2479,.2206,.0965-.0896,.1724-.2482,.1793-.3585,.0138-.5447,.1034-.4206,.8825,1.1996,.4344,.9032,.786,1.6754,.786,1.7098,0,.0414-.5033,1.1169-1.1238,2.3924l-1.1169,2.3235-.2206-.0483c-.6826-.1517-1.1652,.0414-1.1996,.4964-.0276,.2896,.1793,.6688,.4481,.848,.1655,.1103,.1724,.1379,.131,.586-.0276,.2551-.0276,.4688,.0069,.4688,.0276,0,.1862-.131,.3447-.2896l.2965-.2896,.5171,.0207c.4688,.0138,.524,.0069,.6895-.1586,.3171-.3171,.1862-.8067-.324-1.2272l-.2275-.1793,.717-1.4754c.393-.8067,.8549-1.7719,1.0273-2.1442,.1724-.3654,.3309-.6688,.3585-.6688,.0207,0,.2344,.393,.4619,.8825,.2275,.4826,.6895,1.4478,1.0273,2.1442l.6067,1.2617-.2206,.1862c-.5102,.4137-.6412,.9032-.324,1.2203,.1655,.1655,.2206,.1724,.6895,.1586l.5171-.0207,.2965,.2896c.1586,.1586,.3171,.2896,.3447,.2896,.0345,0,.0345-.2137,.0069-.4688-.0414-.4481-.0345-.4757,.131-.586,.2689-.1793,.4757-.5585,.4481-.848-.0414-.4619-.4964-.6343-1.31-.4964-.0965,.0138-.3585-.4619-1.2341-2.289-.6136-1.2686-1.1169-2.3441-1.1169-2.3786,0-.0414,.3516-.8067,.786-1.7098,.7791-1.6271,.8687-1.7512,.8825-1.1996,.0069,.1103,.0827,.2689,.1793,.3585,.3171,.324,1.1514,.1793,1.2479-.2206,.0827-.3103-.0552-.524-.5171-.8273-.2482-.1586-.4688-.3309-.4964-.3723-.0276-.0483,0-.1862,.0552-.3103,.193-.3999-.0207-.7308-.393-.6136-.1517,.0483-.5516,.7722-.5516,.9997,0,.1379-1.4478,3.2404-1.5168,3.2404-.062,0-1.5168-3.1094-1.5168-3.2473,0-.1999-.3861-.9308-.5171-.9859-.1793-.0689-.2896-.0483-.4068,.0689Zm.131,1.5237c-.1034,.6412-.1379,.6757-.5447,.5654-.3654-.1034-.3309-.2896,.1172-.5791,.193-.131,.3861-.2344,.4137-.2344,.0276-.0069,.0345,.1103,.0138,.2482Zm5.033-.0138c.4619,.2896,.5033,.4757,.131,.5791-.4068,.1103-.4412,.0758-.5447-.5654-.0207-.1379-.0207-.2551,0-.2551s.2068,.1103,.4137,.2413ZM6.1211,13.1828c-.0069,.0552-.0345,.1655-.0552,.2482-.0345,.1172,0,.1655,.1793,.2344,.1517,.0621,.2344,.0689,.2482,.0207,.0138-.0345,.0689-.131,.1241-.1999,.0965-.1241,.1103-.1241,.3103,.0965,.1172,.1241,.193,.2551,.1724,.2896-.0621,.1034-.3861,.0827-.7515-.0414s-.9101-.5929-.8342-.717c.0758-.1172,.6205-.0552,.6067,.0689Zm6.3567-.0621c.0758,.1172-.4757,.586-.8342,.7101-.3654,.1241-.6895,.1448-.7515,.0414-.0207-.0345,.0552-.1655,.1724-.2896,.1999-.2206,.2137-.2206,.3103-.0965,.0552,.0689,.1103,.1655,.1241,.1999,.0276,.0896,.4619-.0689,.4619-.1724,0-.0345-.0345-.1241-.0689-.1999-.0414-.0758-.0552-.1655-.0345-.1999,.0552-.0896,.5654-.0896,.6205,.0069Z" fill="#fff"/></svg>`,
+        poi: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#eb6608"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><g><path d="M7.2675,5.0395c-.2308,.0646-.3351,.1422-.69,.5042l-.3475,.3516-.2234,.0336c-.3996,.0569-.8811,.2586-1.1913,.5016-.0819,.0646-.4219,.3594-.757,.6567-.6428,.574-.8389,.7886-1.0399,1.1583-.5957,1.0808-.4641,2.4459,.3251,3.3897,1.0846,1.2979,2.9758,1.3626,4.1399,.1422,.4046-.424,.6825-.9748,.7744-1.5255,.0174-.1086,.0397-.181,.0571-.1732,.3326,.1577,.3351,.1577,.6825,.1577,.3524,0,.3301,.0052,.69-.1603,.0199-.0078,.0298,.0103,.0298,.0517,0,.1344,.1266,.574,.2333,.8093,.2879,.6309,.7297,1.104,1.3179,1.4065,.9109,.468,1.9607,.3956,2.8344-.1965,.1861-.1267,.6403-.5998,.762-.7938,.7793-1.2462,.5932-2.8544-.4393-3.8292-.4542-.4266-1.2708-1.1299-1.4271-1.2255-.3102-.1913-.752-.3516-1.0672-.3827l-.1663-.0181-.3475-.3542c-.1961-.1991-.3971-.3801-.4592-.4137-.5311-.2818-1.1318-.0724-1.4023,.4913-.0248,.0491-.0447,.0931-.0496,.0957-.0025,.0052-.0472-.0155-.1018-.0414-.2358-.1189-.5857-.1189-.8091,0-.0546,.0284-.1018,.0491-.1067,.044-.0025-.0052-.0323-.0595-.062-.1241-.2184-.4525-.7024-.6826-1.1591-.5559Zm-1.3105,2.7097c.8712,.2534,1.4544,1.0394,1.4519,1.9624-.0025,.7705-.4244,1.4634-1.102,1.8047-.278,.1396-.4914,.1887-.8215,.1887-.5287,0-.963-.1784-1.3353-.5456-.2656-.2663-.4492-.5869-.5411-.9592-.0695-.2741-.0695-.7162,0-.998,.1837-.7395,.7471-1.3005,1.4817-1.4712,.2035-.0491,.6726-.0388,.8662,.0181Zm7.0859,.0181c1.1045,.331,1.6976,1.5875,1.2658,2.6916-.1489,.3801-.4765,.7757-.8215,.9877-.3276,.2017-.8166,.3051-1.1839,.256-.6751-.0957-1.2162-.4913-1.5065-1.104-.1588-.3361-.1961-.5068-.1961-.892,0-.3801,.0521-.6154,.211-.9308,.273-.5481,.7967-.9489,1.3824-1.0601,.1936-.0388,.6403-.0103,.8488,.0517Zm-3.8023,.4008c.1216,.0543,.273,.2068,.3301,.3361,.062,.1422,.062,.3801-.005,.53-.1688,.3878-.6205,.5094-.9456,.2508-.2283-.1836-.3053-.5094-.1837-.7834,.0645-.1422,.2308-.3103,.35-.3439,.1216-.0388,.3549-.031,.4542,.0103Z" fill="#fff"/><path d="M5.2993,8.455c-.2556,.0517-.484,.1784-.6726,.3723-.2159,.2249-.345,.5352-.345,.8351,0,.1396,.0074,.1603,.0844,.2405,.0695,.0724,.1042,.0879,.1886,.0879,.1886,0,.2705-.1008,.3078-.3827,.0223-.1525,.0918-.2896,.2035-.393,.1167-.106,.2085-.1448,.3897-.1681,.1713-.0233,.278-.1112,.3028-.2508,.0422-.2301-.1812-.3956-.4592-.3413Z" fill="#fff"/><path d="M12.2487,8.4809c-.417,.1163-.7495,.437-.8786,.8532-.0521,.1681-.062,.4214-.0199,.5068,.072,.1396,.2805,.1939,.4021,.106,.0943-.0672,.1191-.1138,.1365-.2405,.0323-.2275,.0645-.3077,.1737-.4344,.1191-.137,.2259-.1939,.4219-.2249,.2184-.031,.3227-.1344,.3177-.3129-.0025-.1163-.067-.212-.1688-.2586-.1042-.044-.2085-.044-.3847,.0052Z" fill="#fff"/></g></svg>`,
+        active: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#eb6608"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><path d="M8.6895,3.516v.2094l-.2122,.0252c-.7227,.0945-1.458,.4139-2.0315,.8824-.1912,.1576-.5399,.5189-.6723,.6975l-.1008,.1408-.1786-.1029c-.0966-.0567-.1849-.1029-.1933-.1029s-.0882,.1239-.1744,.2773l-.1618,.2773,.1408,.0819c.0777,.0462,.1618,.0966,.187,.1113l.0462,.0294-.0735,.1723c-.1092,.2542-.208,.5987-.2626,.9097-.0588,.3487-.0651,.937-.0105,1.2605,.0525,.3088,.145,.6471,.25,.9118l.0945,.2332-.1597,.0945c-.0903,.0504-.1723,.0987-.187,.1092-.021,.0147,.0546,.1597,.2857,.5504,.0189,.0294,.0567,.0126,.3193-.1429l.0756-.0441,.1239,.1618c.3403,.4538,.8739,.8992,1.3908,1.1597,.0714,.0357,.1303,.0735,.1303,.0819-.0021,.0084-.1555,.4349-.3424,.9496l-.3403,.9335-1.3298,.021h-1.3193v.6513H13.9836v-.6513h-1.2794c-1.1996,0-1.2794-.0021-1.2941-.0378-.0168-.0441-.4853-1.3298-.6008-1.6471l-.0798-.2248,.1849-.0966c.5105-.2647,1.0084-.687,1.3676-1.1597l.0987-.1303,.1849,.105c.1008,.0588,.1912,.0987,.1996,.0882,.0189-.021,.3151-.5315,.3151-.542,0-.0042-.0798-.0525-.1786-.1092-.2059-.1155-.1996-.0903-.0861-.3676,.0987-.2416,.1723-.4979,.2269-.7941,.0378-.1975,.0441-.3235,.0441-.6933s-.0063-.4958-.0441-.6933c-.0546-.2983-.1282-.5567-.2374-.8277-.0441-.1134-.0819-.2122-.0819-.2206s.0798-.0609,.1786-.1155,.1786-.105,.1786-.1092c0-.0147-.2962-.521-.3151-.542-.0126-.0105-.0882,.021-.187,.0777-.0924,.0546-.1786,.0987-.1891,.0987-.0126,0-.0462-.0357-.0798-.0798-.5966-.8067-1.4832-1.3761-2.4643-1.5777-.1092-.0231-.2626-.0483-.3403-.0567l-.1429-.0147v-.4349h-.6723v.2164Zm-.021,1.827l-.0063,.9601-.1155,.0336c-.1975,.0609-.4097,.1828-.5777,.3382l-.084,.0777-.7983-.4601c-.4391-.2542-.8088-.4685-.8235-.4769-.0189-.0105,.0105-.0609,.0903-.1618,.4307-.5441,1.0672-.9685,1.7206-1.1492,.1155-.0315,.5-.1113,.584-.1197,.0084-.0021,.0126,.4307,.0105,.958Zm1.0441-.895c.4832,.0945,1.042,.3529,1.416,.6555,.2458,.1975,.6849,.6702,.6555,.7017-.0063,.0063-.3782,.2227-.8256,.4811l-.813,.4685-.1239-.1134c-.1366-.1239-.3613-.25-.542-.3067l-.1386-.0357,.021-.9559v-.958l.0693,.0126c.0441,.0063,.1702,.0294,.2815,.0504Zm-2.9811,2.395c.4433,.2542,.8109,.4706,.8193,.4769,.0084,.0084,.0021,.0672-.0147,.1303-.0399,.1471-.0399,.4979,0,.6618,.0147,.0693,.0231,.1324,.0147,.1387-.0147,.0126-1.5105,.8761-1.5924,.9181-.0441,.0231-.0504,.0147-.1113-.1387-.3025-.7521-.3088-1.7164-.0168-2.4517,.0273-.0693,.0567-.1429,.063-.1639,.0084-.0189,.0189-.0357,.0252-.0357,.0042,0,.3718,.208,.813,.4643Zm5.4643-.3025c.2647,.6555,.3025,1.437,.1092,2.1597-.0483,.1807-.1471,.4454-.1744,.4769-.0084,.0084-.3782-.1954-.8235-.4538-.9202-.5315-.8256-.4391-.7794-.7647,.0189-.1303,.0189-.2143,0-.3466-.0126-.0945-.0273-.2017-.0336-.2353-.0084-.063-.0042-.0651,.8067-.5294,.4475-.2584,.8193-.4622,.8277-.4517,.0084,.0084,.0399,.0735,.0672,.145Zm-2.8172,.4622c.1849,.0861,.3361,.2374,.4223,.4223,.063,.1303,.0672,.1576,.0672,.3613s-.0042,.2311-.0651,.3592c-.2626,.5546-.979,.6723-1.4076,.2311-.3214-.3319-.313-.8697,.021-1.2017,.1849-.1849,.355-.25,.6324-.2437,.1618,.0042,.2101,.0147,.3298,.0714Zm-1.2374,2.0273l.0588,.0483-.3193,.8824c-.1765,.4853-.3235,.8866-.3298,.8929-.0147,.0189-.3067-.1471-.5084-.2899-.2101-.1471-.6155-.5378-.729-.7017l-.0672-.0945,.8214-.4748,.8214-.4748,.0966,.0819c.0525,.0441,.1239,.1029,.1555,.1303Zm2.813,.25c.4433,.2563,.813,.4706,.8214,.4811,.0504,.0462-.4706,.584-.7752,.8025-.1933,.1366-.4874,.3004-.5063,.2815-.0084-.0084-.1576-.4076-.334-.8908l-.3214-.8761,.0672-.0525c.0378-.0294,.105-.0882,.1513-.1303,.0462-.0441,.0861-.0798,.0882-.0798s.3655,.208,.8088,.4643Zm-1.4139,.9041c.1744,.4811,.3172,.8866,.3172,.8992,0,.0777-.9097,.145-1.2647,.0945-.1786-.0252-.3992-.0672-.4139-.0798-.0042-.0021,.1366-.4076,.3151-.8971l.3235-.8929h.4055l.3172,.8761Zm-1.3928,1.5707c.0966,.0231,.2563,.0525,.3571,.0651l.1828,.0252,.0063,.2122,.0063,.2143,.3319,.0063,.3298,.0063v-.4412l.1218-.0126c.0651-.0084,.2332-.0378,.3697-.0651,.1387-.0273,.2542-.0483,.2563-.0441,.0105,.0126,.5966,1.6345,.5966,1.6534,0,.0147-.5462,.021-1.6807,.021-.9244,0-1.6807-.0042-1.6807-.0105,0-.0147,.5882-1.6324,.6008-1.6534,.0147-.021-.0021-.0231,.2017,.0231Z" fill="#fff"/></svg>`,
+        relax: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#eb6608"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><path d="M5.5673,5.7635v.4679h.8505c.4678,0,.8505,.008,.8505,.0186s-.2312,.5848-.5103,1.2758l-.513,1.2572H3.7067v.9303l1.071,.0266,1.0738,.008-.5911,1.4712-.5911,1.4712,.5726,.008c.3154,.0027,.5779,0,.5832-.0053,.0133-.0106,1.2008-2.9344,1.2008-2.9503,0-.0053,.8801-.0053,1.9563-.0027l1.9615,.008,.5949,1.4671c.3254,.8056,.6029,1.4751,.6135,1.4858,.0133,.0133,.2801,.0187,.5975,.016l.572-.008-.5831-1.4379c-.3222-.7908-.5911-1.4592-.5991-1.4858-.0133-.0426,.0506-.0453,1.0651-.0453h1.0811v-.9834l-1.2813,.0266-1.2747-.008-.5168-1.2718-.5194-1.2718,.8676,.0266,.864-.0054v-.978H5.5673v.489Zm4.0905,1.0712c.1356,.3349,.3695,.909,.521,1.2758l.2711,.6725h-1.5682c-1.2785,0-1.5655-.0053-1.5576-.0346,.0053-.0186,.2366-.5927,.513-1.2758l.505-1.2413h1.0712l.2445,.6034Z" fill="#fff"/></svg>`,
+        info: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#e6007d"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><path d="M8.1192,7.7879h-1.9863v-1.3154h3.7163v5.7168h2.0278v1.3145H5.8907v-1.3145h2.2285V7.7879Zm1.8687-3.2393c0,.1523-.0278,.2959-.083,.4297-.0557,.1338-.1328,.25-.2319,.3486-.0996,.0996-.2158,.1777-.3496,.2354s-.2793,.0869-.436,.0869-.3032-.0293-.4395-.0869-.2539-.1357-.353-.2354c-.0991-.0986-.1763-.2148-.2319-.3486-.0552-.1338-.083-.2773-.083-.4297s.0278-.2949,.083-.4287c.0557-.1338,.1328-.252,.2319-.3535,.0991-.1006,.2168-.1807,.353-.2383s.2827-.0869,.4395-.0869,.3022,.0293,.436,.0869,.25,.1377,.3496,.2383c.0991,.1016,.1763,.2197,.2319,.3535,.0552,.1338,.083,.2764,.083,.4287Z" fill="#fff"/></svg>`,
+        hotel: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#e6007e"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><g><path d="M3.9243,4.8474c-.1255,.0688-.1174-.2045-.1174,3.8566,0,4.0773-.0101,3.7898,.1215,3.8566,.0526,.0283,.162,.0304,.7713,.0263l.7105-.0061,.0588-.067,.0588-.065v-1.584h6.9291v1.5704l.0588,.0647,.0588,.0667,.7111,.0061c.6098,.004,.7192,.002,.7719-.0263,.1256-.0647,.1216,.002,.1216-1.6847,0-1.0416-.0061-1.5553-.0223-1.5978-.0122-.0344-.0466-.0789-.075-.0991-.0527-.0344-.237-.0364-4.3033-.0425l-4.2506-.004V4.9587l-.0587-.0648-.0587-.0668-.7167-.004c-.6053-.004-.7227,0-.7693,.0243Z" fill="#fff"/><path d="M6.9945,6.1312c-.47,.1054-.8732,.5004-.9806,.9624-.0182,.0729-.0324,.2087-.0324,.3039,0,.3627,.1175,.6443,.3748,.9036,.2715,.2755,.6139,.4093,.9826,.387,.5734-.0365,1.0414-.4194,1.1873-.9685,.0446-.1702,.0446-.4741,0-.6443-.1155-.4356-.4457-.78-.8732-.9137-.1844-.0567-.4802-.0709-.6585-.0304Z" fill="#fff"/><path d="M9.1178,6.1333c-.1195,.0628-.1175,.0446-.1175,1.2643,0,.9583,.0041,1.1245,.0304,1.1751,.0669,.1297-.0871,.1216,2.5629,.1216s2.4961,.0081,2.5629-.1216c.0385-.0729,.0385-.1986,0-.4518-.152-1.015-.9745-1.8376-1.9896-1.9896-.2938-.0446-2.9682-.0425-3.0492,.002Z" fill="#fff"/></g></svg>`,
+        cafe: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#e6007e"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><g><path d="M5.8286,3.659c-.0274,.016-.0661,.0524-.0844,.0798-.0251,.0319-.1117,.5518-.2599,1.5482-.1254,.8254-.2326,1.5665-.2417,1.6486-.0342,.3283,.0752,.7821,.2622,1.0968,.1687,.285,.4971,.5928,.7775,.7274,.1003,.0502,.1072,.057,.098,.1345-.0068,.0456-.0935,1.2472-.1938,2.6701-.2075,2.9072-.2052,2.7886-.0524,3.0965,.1665,.342,.488,.5723,.8642,.627,.4811,.0707,.9736-.1915,1.1834-.627,.1505-.3124,.1528-.187-.0524-3.0509-.1003-1.4114-.187-2.6176-.1938-2.6792l-.0114-.114,.1847-.1026c.4378-.2417,.7753-.6863,.9098-1.1971,.0866-.3397,.0752-.5062-.1801-2.1935-.2371-1.5688-.2485-1.6166-.3625-1.6691s-.2554-.0023-.3124,.1072c-.0205,.041-.0661,.4697-.1368,1.3499-.0593,.7091-.1163,1.3111-.1277,1.3385-.0251,.0616-.1208,.0889-.2029,.0616-.0433-.016-.0638-.0433-.0775-.1003-.0091-.0433-.0638-.6407-.1186-1.3271-.057-.6863-.1117-1.27-.1231-1.2997-.0365-.0935-.1117-.1437-.2235-.1437-.0866,0-.1117,.0114-.1687,.0752-.0365,.041-.0661,.0866-.0661,.1026,0,.0137-.0502,.6088-.1117,1.3225-.1186,1.4114-.114,1.3841-.2577,1.3841-.0638,0-.1551-.0684-.1551-.1163,0-.1414-.2121-2.5378-.2303-2.6039-.0388-.1437-.2075-.2166-.3352-.1459v-.0002Z" fill="#fff"/><path d="M12.1925,3.7548c-.9941,.5085-1.6531,1.3955-1.8355,2.4694-.0433,.2508-.0365,1.0603,.0114,1.4114,.1049,.7707,.3375,1.4228,.6726,1.8903l.1322,.1824-.1756,.187c-.1505,.1573-.1801,.2029-.1915,.2827-.0068,.0547-.098,.9691-.2052,2.0362-.2052,2.0772-.2052,2.0727-.1072,2.3326,.1938,.5062,.7183,.8186,1.2472,.7411,.4925-.0707,.9166-.4834,.9919-.9645,.0137-.0958,.0228-1.9359,.0228-5.3082,0-5.6502,.0091-5.2763-.1345-5.3493-.1072-.057-.1665-.0456-.4287,.0889h0Z" fill="#fff"/></g></svg>`,
+        hospital: `<?xml version="1.0" encoding="UTF-8"?><svg id="a" xmlns="http://www.w3.org/2000/svg" width="17.9922" height="17.9922" viewBox="0 0 17.9922 17.9922"><g><circle cx="8.9961" cy="8.996" r="8.5" fill="#e6007e"/><path d="M8.9961,17.9922C4.0356,17.9922,0,13.957,0,8.9961S4.0356,0,8.9961,0s8.9961,4.0356,8.9961,8.9961-4.0352,8.9961-8.9961,8.9961ZM8.9961,.9922C4.5825,.9922,.9922,4.5825,.9922,8.9961s3.5903,8.0039,8.0039,8.0039,8.0039-3.5908,8.0039-8.0039S13.4092,.9922,8.9961,.9922Z" fill="#fff"/></g><path d="M7.6992,5.8443v1.8469l-1.8555,.0078h-1.8476v2.6016h3.6875l.0078,1.8523v1.843h2.6094l.0078-1.8423v-1.8531l1.8437,.0078h1.8438v-2.6172l-1.8438,.0078h-1.8437V3.996h-2.6172l.0078,1.8484h0Z" fill="#fff"/></svg>`
+      };
+
+      const chapterTitles = {
+        ski: 'Горные лыжи',
+        tracking: 'Трекинг',
+        dosug: 'Объекты отдыха и развлечения',
+        service: 'Объекты обслуживания туристов'
+      };
+
+      const subChapterTitles = {
+        slopes: 'Горнолыжные трассы',
+        trail: 'Туристские тропы',
+        aerialway: 'Подъёмники',
+        sport: 'Спортивные услуги и сервис'
+      };
+
+      const groupTitles = {
+        green: 'Лёгкие',
+        blue: 'Умеренные',
+        red: 'Сложные',
+        black: 'Очень сложные',
+        easy: 'Лёгкие',
+        medium: 'Умеренные',
+        hard: 'Сложные',
+        expert: 'Очень сложные',
+        gondola1: 'Гондольные',
+        gondola1: 'Гондольные',
+        chair1: 'Кресельные',
+        bugel1: 'Бугельные',
+        gondola2: 'Гондольные',
+        chair2: 'Кресельные',
+        education_w: 'Спортивные школы',
+        education_s: 'Спортивные школы',
+        rental_w: 'Пункты проката',
+        rental_s: 'Пункты проката',
+        poi: 'Достопримечательности',
+        active: 'Активные развлечения',
+        relax: 'Места отдыха',
+        info: 'Туристско-информационные центры',
+        hotel: 'Гостиницы, апартаменты',
+        cafe: 'Рестораны, кафе',
+        hospital: 'Медицинские пункты'
+      };
+
+      Object.entries(chapters).forEach(([chapter, subChapters]) => {
+        const chapterDetails = document.createElement('details');
+        chapterDetails.open = true;
+
+        const chapterSummary = document.createElement('summary');
+        const chapterLabel = document.createElement('span');
+        chapterLabel.textContent = chapterTitles[chapter] || chapter;
+        chapterLabel.style.fontWeight = 'bold';
+        chapterLabel.style.fontSize = '16px';
+        chapterLabel.style.marginLeft = '5px';
+        chapterSummary.appendChild(chapterLabel);
+        chapterDetails.appendChild(chapterSummary);
+
+        Object.entries(subChapters).forEach(([subChapter, groups]) => {
+          const subChapterDetails = document.createElement('details');
+          subChapterDetails.open = true;
+
+          const subChapterSummary = document.createElement('summary');
+          const subChapterLabel = document.createElement('span');
+          subChapterLabel.textContent = subChapterTitles[subChapter] || subChapter;
+          subChapterLabel.style.fontWeight = '500';
+          subChapterLabel.style.fontSize = '15px';
+          subChapterLabel.style.marginLeft = '10px';
+          subChapterSummary.appendChild(subChapterLabel);
+          subChapterDetails.appendChild(subChapterSummary);
+
+          Object.entries(groups).forEach(([group, items]) => {
+            const details = document.createElement('details');
+            details.open = false;
+
+            const titleText = groupTitles[group] || group;
+            const labelSpan = document.createElement('span');
+            labelSpan.textContent = titleText;
+            labelSpan.style.fontWeight = '500';
+            labelSpan.style.fontSize = '14px';
+            labelSpan.style.marginLeft = '12px';
+
+            const summary = document.createElement('summary');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.style.marginRight = '8px';
+
+            checkbox.addEventListener('change', () => {
+              toggleGroupVisibility(group, checkbox.checked);
+            });
+
+            const iconWrapper = document.createElement('span');
+            iconWrapper.innerHTML = groupIcons[group] || '';
+            iconWrapper.style.display = 'inline-flex';
+            iconWrapper.style.alignItems = 'center';
+
+            summary.appendChild(checkbox);
+            summary.appendChild(iconWrapper);
+            summary.appendChild(labelSpan);
+            details.appendChild(summary);
+
+            const nameToFeatures = {};
+            items.forEach(f => {
+              const name = f.properties.full_name;
+              if (!nameToFeatures[name]) {
+                nameToFeatures[name] = [];
+              }
+              nameToFeatures[name].push(f);
+            });
+
+            const ul = document.createElement('ul');
+            items.forEach(f => {
+              const name = f.properties.full_name;
+              const li = document.createElement('li');
+              li.textContent = name;
+              li.addEventListener('click', () => {
+                flyToFeature(f, true);
+              });
+              ul.appendChild(li);
+            });
+
+            details.appendChild(ul);
+            subChapterDetails.appendChild(details);
+          });
+
+          chapterDetails.appendChild(subChapterDetails);
+        });
+
+        container.appendChild(chapterDetails);
+      });
+
+      setupSearch(features);
+    }
+
+    function toggleGroupVisibility(group, visible) {
+      const visibility = visible ? 'visible' : 'none';
+      const layers = {
+        winter: {
+          'black': ['slopes-black', 'slopes-black copy', 'slopes-black text'],
+          'red': ['slopes-red', 'slopes-red copy', 'slopes-red text'],
+          'blue': ['slopes-blue', 'slopes-blue copy', 'slopes-blue text'],
+          'green': ['slopes-green', 'slopes-green copy', 'slopes-green text'],
+          'gondola1': ['lifts_w gondola', 'lifts_w gondola copy', 'lifts_w icon gondola'],
+          'chair1': ['lifts_w chair', 'lifts_w chair copy', 'lifts_w icon chair'],
+          'bugel1': ['lifts_w bugel', 'lifts_w bugel copy', 'lifts_w icon bugel'],
+          'education_w': ['education_w2'],       
+          'rental_w': ['rental_w2'],
+          'poi': ['poi2'],
+          'active': ['active2'],
+          'relax': ['relax2'],
+          'info': ['info2'],
+          'hotel': ['hotel2'],
+          'cafe': ['cafe2'],
+          'hospital': ['hospital2']
+        },
+        summer: {
+          'expert': ['trails-expert', 'trails-expert copy', 'trails-expert text'],
+          'hard': ['trails-hard', 'trails-hard copy', 'trails-hard text'],
+          'medium': ['trails-medium', 'trails-medium copy', 'trails-medium text'],
+          'easy': ['trails-easy', 'trails-easy copy', 'trails-easy text'],
+          'gondola2': ['lifts_s gondola', 'lifts_s gondola copy', 'lifts_s icon gondola'],
+          'chair2': ['lifts_s chair', 'lifts_s chair copy', 'lifts_s icon chair'],
+          'education_s': ['education_s3'],       
+          'rental_s': ['rental_s3'],
+          'poi': ['poi3'],
+          'active': ['active3'],
+          'relax': ['relax3'],
+          'info': ['info3'],
+          'hotel': ['hotel3'],
+          'cafe': ['cafe3'],
+          'hospital': ['hospital3']
+        }
+      };
+
+      const layersToToggle = layers[currentStyle][group] || [];
+      layersToToggle.forEach(layerId => {
+        if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, 'visibility', visibility);
+        }
+      });
+    }
+
+    function updateGeojsonLayer(data) {
+      const allowedGroups = groupByStyle[currentStyle];
+
+      const filtered = {
+        type: 'FeatureCollection',
+        features: data.features.filter(f => allowedGroups.includes(f.properties.group))
+      };
+
+      if (!map.getSource('custom-points')) {
+        map.addSource('custom-points', { type: 'geojson', data: filtered });
+      }
+      if (filtered.features.some(f => f.geometry.type === 'LineString')) {
+        map.addSource('custom-lines', { type: 'geojson', data: filtered });
+      }
+
+      if (!map.getLayer('highlight-points')) {
+        map.addLayer({
+          id: 'highlight-points',
+          type: 'circle',
+          source: 'custom-points',
+          filter: ['==', 'name', ''],
+          layout: {
+            'circle-pitch-alignment': 'map'
+          },
+          paint: {
+            'circle-radius': 14,
+            'circle-color': '#FFFF00',
+            'circle-opacity': 0.5,
+            'circle-blur': 0.5,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#FFFF00',
+            'circle-stroke-opacity': 0.8
+          }
+        }, 'building-extrusion');
+      }
+
+      if (!map.getLayer('highlight-lines')) {
+        map.addLayer({
+          id: 'highlight-lines',
+          type: 'line',
+          source: 'custom-lines',
+          filter: ['==', 'name', ''],
+          paint: {
+            'line-color': '#FFFF00',
+            'line-width': 6,
+            'line-opacity': 0.8,
+            'line-blur': 0.5
+          }
+        }, 'building-extrusion');
+      }
+
+      setupObjectList(filtered.features);
+      setupSearch(filtered.features);
+    }
+
+    function flyToFeature(feature, fly = true) {
+    let bounds;
+
+      const currentPitch = map.getPitch();
+      const currentBearing = map.getBearing();
+
+      if (feature.geometry.type === 'Point') {
+        const coordinates = feature.geometry.coordinates;
+        bounds = new mapboxgl.LngLatBounds(coordinates, coordinates);
+      } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString') {
+        bounds = new mapboxgl.LngLatBounds();
+
+        if (feature.geometry.type === 'LineString') {
+          feature.geometry.coordinates.forEach(coord => {
+            bounds.extend(coord);
+          });
+        } else if (feature.geometry.type === 'MultiLineString') {
+          feature.geometry.coordinates.forEach(line => {
+            line.forEach(coord => {
+              bounds.extend(coord);
+            });
+          });
+        }
+      }
+
+      if (fly) {
+        map.fitBounds(bounds, {
+          padding: { top: 20, bottom: 20, left: 20, right: 20 },
+          essential: true,
+          offset: [100, 0],
+          maxZoom: 16.5,
+          pitch: currentPitch,
+          bearing: currentBearing
+        });
+      }
+
+      const featureName = feature.properties.name || '';
+      if (feature.geometry.type === 'Point') {
+        map.setFilter('highlight-points', ['==', 'name', featureName]);
+        map.setFilter('highlight-lines', ['==', 'name', '']);
+      } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString') {
+        map.setFilter('highlight-lines', ['==', 'name', featureName]);
+        map.setFilter('highlight-points', ['==', 'name', '']);
+      }
+
+      if (currentPopup) currentPopup.remove();
+
+      const props = feature.properties;
+      let html;
+
+      switch (props.group) {
+        case 'roza_hutor':
+        case 'krasnaya_polyana':
+        case 'gazprom':
+          html = `
+            <div style="max-width: 280px; font-size: 14px; position: relative;">
+              <button id="popup-close" style="position: absolute; width: 30px; margin-top: -15px; top: 0; right: -16px;
+                background: transparent; border: none; font-size: 18px; cursor: pointer; color: #888;">×</button>
+              <h3 style="margin-top: 0; margin-bottom: 5px; text-align: center;">${props.full_name}</h3>
+              <img src="img/${props.img}.jpg" alt="${props.full_name}" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 8px;">
+              <p style="margin: 0;">${props.desc1}</p>
+              <p style="margin: 0;">Телефон: ${props.desc2}</p>
+              <p style="margin: 0;">${props.desc3}</p>
+              <p style="margin: 0;">${props.desc4}</p>
+              <a href="${props.link}" target="_blank" style="display: inline-block; width: 88%; margin-top: 10px; padding: 8px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 4px; text-align: center; transition: filter 0.2s ease-in-out;" onmouseover="this.style.filter='brightness(85%)'" onmouseout="this.style.filter='brightness(100%)'">Перейти на сайт</a>
+            </div>
+          `;
+          break;
+        case 'green':
+        case 'blue':
+        case 'red':
+        case 'black':
+          html = `
+            <div style="max-width: 280px; font-size: 14px; position: relative; text-align: center;">
+              <button id="popup-close" style="position: absolute; width: 30px; margin-top: -15px; top: 0; right: -16px;
+                background: transparent; border: none; font-size: 18px; cursor: pointer; color: #888;">×</button>
+                <div style="display: inline-block; background: ${props.group}; color: #fff; padding: 6px 12px; text-align: center; border-radius: 4px; margin-top: 0; margin-bottom: 5px;">
+                  <h3 style="margin: 0; font-size: 16px;">${props.full_name}</h3>
+                </div>
+              <p style="margin: 0; text-align: left; font-weight: bold;">Курорт: ${props.resort}</p>
+              <p style="margin: 0; text-align: left;">Протяжённость: ${props.distance} м</p>
+              <p style="margin: 0; text-align: left;">Набор: ${props.ascent} м</p>
+              <p style="margin: 0; text-align: left;">Сброс: ${props.descent} м</p>
+              <p style="margin: 0; text-align: left;">Средний уклон: ${props.ave_slope}</p>
+              <p style="margin: 0; text-align: left; margin-bottom: 8px;">Максимальный уклон: ${props.max_slope}</p>
+              <img src="img/${props.img}.png" alt="${props.full_name}" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 8px;">
+              <a href="${props.link}" target="_blank" style="display: inline-block; width: 88%; margin-top: 10px; padding: 8px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 4px; text-align: center; transition: filter 0.2s ease-in-out;" onmouseover="this.style.filter='brightness(85%)'" onmouseout="this.style.filter='brightness(100%)'">Подробнее о трассах</a>
+            </div>
+          `;
+          break;
+        case 'easy':
+        case 'medium':
+        case 'hard':
+        case 'expert':
+          html = `
+            <div style="max-width: 280px; font-size: 14px; position: relative; text-align: center;">
+              <button id="popup-close" style="position: absolute; width: 30px; margin-top: -15px; top: 0; right: -16px;
+                background: transparent; border: none; font-size: 18px; cursor: pointer; color: #888;">×</button>
+                <div style="display: inline-block; background: ${props.color}; color: #fff; padding: 6px 12px; text-align: center; border-radius: 4px; margin-top: 0; margin-bottom: 5px;">
+                  <h3 style="margin: 0; font-size: 16px;">${props.full_name}</h3>
+                </div>
+              <p style="margin: 0; text-align: left; font-weight: bold;">Курорт: ${props.resort}</p>
+              <img src="img/${props.img}.jpg" alt="${props.full_name}" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 8px;">
+              <p style="margin: 0; text-align: left;">Протяжённость: ${props.distance} м</p>
+              <p style="margin: 0; text-align: left;">Набор: ${props.ascent} м</p>
+              <p style="margin: 0; text-align: left;">Сброс: ${props.descent} м</p>
+              <a href="${props.link}" target="_blank" style="display: inline-block; width: 88%; margin-top: 10px; padding: 8px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 4px; text-align: center; transition: filter 0.2s ease-in-out;" onmouseover="this.style.filter='brightness(85%)'" onmouseout="this.style.filter='brightness(100%)'">Подробнее</a>
+            </div>
+          `;
+          break;
+        case 'gondola1':
+        case 'gondola2':
+        case 'chair1':
+        case 'chair2':
+        case 'bugel1':
+          html = `
+            <div style="max-width: 280px; font-size: 14px; position: relative;">
+              <button id="popup-close" style="position: absolute; width: 30px; margin-top: -15px; top: 0; right: -16px;
+                background: transparent; border: none; font-size: 18px; cursor: pointer; color: #888;">×</button>
+              <h3 style="margin-top: 0; margin-bottom: 5px; text-align: center;">${props.full_name}</h3>
+              <p style="margin: 0; font-weight: bold;">${props.type_ru} подъёмник</p>
+              <img src="img/${props.img}.jpg" alt="${props.full_name}" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 8px;">
+              <p style="margin: 0;">Протяжённость: ${props.distance} м</p>
+              <p style="margin: 0;">Перепад высот: ${props.vertical}</p>
+              <p style="margin: 0;">Средний уклон: ${props.ave_slope}</p>
+              <a href="${props.link}" target="_blank" style="display: inline-block; width: 88%; margin-top: 10px; padding: 8px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 4px; text-align: center; transition: filter 0.2s ease-in-out;" onmouseover="this.style.filter='brightness(85%)'" onmouseout="this.style.filter='brightness(100%)'">Подробнее о подъёмниках</a>
+            </div>
+          `;
+          break;
+        case 'education_w':
+        case 'education_s':
+        case 'rental_w':
+        case 'rental_s':
+        case 'poi':
+        case 'active':
+        case 'relax':
+        case 'info':
+        case 'cafe':
+        case 'hospital':
+          html = `
+            <div style="max-width: 280px; font-size: 14px; position: relative;">
+              <button id="popup-close" style="position: absolute; width: 30px; margin-top: -15px; top: 0; right: -16px;
+                background: transparent; border: none; font-size: 18px; cursor: pointer; color: #888;">×</button>
+              <h3 style="margin-top: 0; margin-bottom: 5px; text-align: center;">${props.full_name}</h3>
+              <img src="img/${props.img}.jpg" alt="${props.full_name}" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 8px;">
+              <p style="margin: 0; font-size: 12px; color: #888; text-align: center;">${props.season}</p>
+              <p style="margin: 0;">${props.desc1}</p>
+              <p style="margin: 0;">Адрес: ${props.desc2}</p>
+              <p style="margin: 0;">Телефон: ${props.desc3}</p>
+              <p style="margin: 0;">График работы: ${props.desc4}</p>
+              <a href="${props.link}" target="_blank" style="display: inline-block; width: 88%; margin-top: 10px; padding: 8px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 4px; text-align: center; transition: filter 0.2s ease-in-out;" onmouseover="this.style.filter='brightness(85%)'" onmouseout="this.style.filter='brightness(100%)'">Подробнее</a>
+            </div>
+          `;
+          break;
+          case 'hotel':
+          html = `
+            <div style="max-width: 280px; font-size: 14px; position: relative;">
+              <button id="popup-close" style="position: absolute; width: 30px; margin-top: -15px; top: 0; right: -16px;
+                background: transparent; border: none; font-size: 18px; cursor: pointer; color: #888;">×</button>
+              <h3 style="margin-top: 0; margin-bottom: 5px; text-align: center;">${props.full_name}</h3>
+              <img src="img/${props.img}.jpg" alt="${props.full_name}" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 8px;">
+              <p style="margin: 0;">${props.desc1}</p>
+              <p style="margin: 0;">Адрес: ${props.desc2}</p>
+              <p style="margin: 0;">Телефон: ${props.desc3}</p>
+              <p style="margin: 0;">e-mail: ${props.desc4}</p>
+              <a href="${props.link}" target="_blank" style="display: inline-block; width: 88%; margin-top: 10px; padding: 8px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 4px; text-align: center; transition: filter 0.2s ease-in-out;" onmouseover="this.style.filter='brightness(85%)'" onmouseout="this.style.filter='brightness(100%)'">Подробнее</a>
+            </div>
+          `;
+          break;
+        default:
+          html = `
+            <div style="max-width: 280px; font-size: 14px; position: relative;">
+              <button id="popup-close" style="position: absolute; width: 30px; margin-top: -15px; top: 0; right: -16px;
+                background: transparent; border: none; font-size: 18px; cursor: pointer; color: #888;">×</button>
+              <h3 style="margin-top: 0; margin-bottom: 5px; text-align: center;">${props.full_name}</h3>
+              <img src="img/${props.img}.jpg" alt="${props.full_name}" style="width: 100%; height: auto; border-radius: 4px; margin-bottom: 8px;">
+              <p style="margin: 0;">${props.desc1}</p>
+              <p style="margin: 0;">Телефон: ${props.desc2}</p>
+              <p style="margin: 0;">${props.desc3}</p>
+              <p style="margin: 0;">${props.desc4}</p>
+              <a href="${props.link}" target="_blank" style="display: inline-block; width: 88%; margin-top: 10px; padding: 8px 16px; background: #007bff; color: #fff; text-decoration: none; border-radius: 4px; text-align: center; transition: filter 0.2s ease-in-out;" onmouseover="this.style.filter='brightness(85%)'" onmouseout="this.style.filter='brightness(100%)'">Перейти на сайт</a>
+            </div>
+          `;
+      }
+
+      const popup = document.getElementById('custom-popup');
+      popup.innerHTML = html;
+      popup.classList.add('show');
+      popup.style.display = 'block';
+
+      document.getElementById('popup-close').addEventListener('click', () => {
+        popup.classList.remove('show');
+        popup.style.display = 'none';
+        map.setFilter('highlight-points', ['==', 'name', '']);
+        map.setFilter('highlight-lines', ['==', 'name', '']);
+      });
+    }
+
+    function setupSearch(features) {
+      const input = document.getElementById('search-input');
+      const results = document.getElementById('search-results');
+
+      input.addEventListener('input', () => {
+        const query = input.value.trim().toLowerCase();
+        results.innerHTML = '';
+        if (query.length < 2) return;
+
+        const matches = features.filter(f => f.properties.name.toLowerCase().includes(query));
+        matches.forEach(f => {
+          const div = document.createElement('div');
+          div.textContent = f.properties.name;
+          div.addEventListener('click', () => {
+            flyToFeature(f);
+            input.value = '';
+            results.innerHTML = '';
+          });
+          results.appendChild(div);
+        });
+      });
+    }
+    
+      const legend = document.getElementById('legend');
+      const toggleBtn = document.getElementById('toggle-legend-btn');
+      const popup = document.getElementById('custom-popup');
+
+      toggleBtn.addEventListener('click', () => {
+        legend.classList.toggle('hidden');
+        toggleBtn.classList.toggle('closed');
+
+        updatePopupPosition();
+      });
+
+      function updatePopupPosition() {
+      const btnRect = toggleBtn.getBoundingClientRect();
+      const offsetTop = btnRect.bottom + 10 + window.scrollY;
+
+      if (legend.classList.contains('hidden')) {
+        popup.style.left = `${btnRect.left}px`;
+        popup.style.top = `${offsetTop}px`;
+      } else {
+        popup.style.left = '330px';
+        popup.style.top = '10px';
+      }
+    }
+
+      updatePopupPosition();
+
+      const styleToggle = document.getElementById('style-toggle');
+      const snowButton = document.getElementById('snow_button');
+
+      function updateSnowButtonVisibility() {
+        if (styleToggle.value === 'winter') {
+          snowButton.style.display = 'block';
+        } else {
+          snowButton.style.display = 'none';
+        }
+      }
+
+      updateSnowButtonVisibility();
+
+      function openModal() {
+            document.getElementById('myModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('myModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('myModal')) {
+                closeModal();
+            }
+        }
+
+      styleToggle.addEventListener('change', updateSnowButtonVisibility);
+
+      window.addEventListener("DOMContentLoaded", updateSnowButtonVisibility);
+
+      
+        document.getElementById('style-toggle').addEventListener('change', (e) => {
+          currentStyle = e.target.value;
+          initMap(currentStyle);
+        });
+
+        initMap(currentStyle);
+  </script>
+</body>
+</html>
